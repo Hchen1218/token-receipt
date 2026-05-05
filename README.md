@@ -83,6 +83,32 @@ PRICE DATE                            2026-04-25
 
 There are three ways to use `token-receipt`.
 
+### The footer is the feature
+
+The footer is not decoration.
+It is the coup de grace.
+
+This project is built around the idea that the last line on the receipt should feel like the model watched you spend context on one more revision and decided to leave a note.
+
+That now splits into two modes:
+
+- the default receipt footer stays cold and mildly hostile
+- the HTML tip flow can switch the receipt into a different closing voice, where the footer gets more grateful, more performative, and much more aware that you just added money on top
+- in tip mode, English footers no longer keep starting from the product name, and Chinese footers now actually react to tone and bill weight instead of pretending to
+
+Examples:
+
+- `THE LOGO LOOKS CALM. THE BILL DOES NOT.`
+- `REASONING WAS BILLED SEPARATELY.`
+- `THE LAST REVISION WAS NOT THE LAST.`
+- `画面稳了，预算死了。`
+- `最后一版这个词，本来就不诚实。`
+
+If the user adds a tip in HTML, the footer is rewritten instead of extended.
+It stops acting like a dry bill and starts acting like a register that knows you tipped.
+
+If the receipt looks good but the footer has no sting, the job is not done.
+
 ### 1. Trigger it inside chat
 
 If you installed this repo as a skill, the normal path is not “open terminal and figure it out.”
@@ -141,25 +167,6 @@ Trigger matrix:
 | Trae | Say `token receipt` or equivalent | Not shipped |
 | Kimi Code | Say `token receipt` or equivalent; CLI `--agent-tool kimi-code` | Not shipped |
 | OpenCode | Say `token receipt` or equivalent; CLI `--agent-tool opencode` | Not shipped |
-
----
-
-## The footer is the feature
-
-The footer is not decoration.
-It is the coup de grace.
-
-This project is built around the idea that the last line on the receipt should feel like the model watched you spend context on one more revision and decided to leave a note.
-
-Examples:
-
-- `THE LOGO LOOKS CALM. THE BILL DOES NOT.`
-- `REASONING WAS BILLED SEPARATELY.`
-- `THE LAST REVISION WAS NOT THE LAST.`
-- `画面稳了，预算死了。`
-- `最后一版这个词，本来就不诚实。`
-
-If the receipt looks good but the footer has no sting, the job is not done.
 
 ---
 
@@ -255,8 +262,11 @@ Useful software-specific examples:
 ```bash
 python3 scripts/token_receipt.py --agent-tool codex
 python3 scripts/token_receipt.py --agent-tool claude-code
+python3 scripts/token_receipt.py --agent-tool kimi-code
+python3 scripts/token_receipt.py --agent-tool opencode
 python3 scripts/token_receipt.py --agent-tool codex --scope session
 python3 scripts/token_receipt.py --agent-tool claude-code --show-fields
+python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
 python3 scripts/token_receipt.py --agent-tool trae --provider openai --model gpt-5.4 --input-tokens 12487 --output-tokens 3215
 ```
 
@@ -280,8 +290,14 @@ What those flags mean in plain English:
   Read Codex data and use the Codex receipt header.
 - `--agent-tool claude-code`
   Read Claude Code data and use the Claude Code receipt header.
+- `--agent-tool kimi-code`
+  Read Kimi Code's local `context.jsonl` and print a receipt from the cumulative session view it exposes.
+- `--agent-tool opencode`
+  Read OpenCode's local SQLite sessions and use the OpenCode receipt header.
 - `--agent-tool trae`
   Use Trae branding. For now, bring your own token counts.
+- `--opencode-session-id ses_xxx`
+  Pick a specific OpenCode session when you are pointing `--session` at an `opencode*.db` file or when more than one session exists locally.
 - `--show-fields`
   Ask the logs what they can actually prove.
 - `--language en`
@@ -325,13 +341,15 @@ The current HTML path is tuned for the same three things people actually notice:
 - a pure white print result, so the browser preview does not lie about the final paper
 - software-aware logos in HTML too: Claude Code uses a dedicated vector mark, while Codex and Trae use embedded image assets
 
-And now it behaves more like an actual checkout surface instead of a dead export:
+And now it behaves more like a live checkout surface instead of a dead export:
 
 - an `EN / 中文` toggle outside the receipt, so one printable page can flip languages without regenerating the file
 - an external `Add tip` panel, so the controls stay off the paper until you explicitly opt in
+- the tip panel only appears when the receipt has a real priced subtotal; unmapped receipts do not fake a gratuity flow
 - `SUBTOTAL / TIP / GRAND TOTAL` only show up inside the receipt after a tip is selected
-- tip mode replaces the original footer instead of appending a canned thank-you tail
-- tip-aware footers intentionally switch tone: the default receipt stays colder, the tipped receipt gets noticeably more grateful and performative
+- tip mode replaces the original footer entirely; it does not bolt a canned thank-you tail onto the end
+- tipped receipts switch into a different checkout voice: less cold, more grateful, more willing to flatter you for the extra money
+- language switching now updates the page state as well, so the browser preview is not only visually switched but also semantically in the right language
 
 ---
 
@@ -399,7 +417,7 @@ See [CHANGELOG.md](/Users/cecilialiu/Documents/Codex/token-receipt/CHANGELOG.md)
 ## Roadmap
 
 - `Shipped now`
-  Printable HTML export for browser print preview and physical receipt workflows.
+  Printable HTML export with language switching, external tip controls, and a live checkout-style print surface.
 - `Next up`
   Printer-first presets for common paper widths and cleaner print defaults.
 - `Also planned`

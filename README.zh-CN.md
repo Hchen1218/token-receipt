@@ -83,6 +83,32 @@ USD 预估                                $0.062851
 
 `token-receipt` 有三种触发方式。
 
+### footer 才是亮点
+
+footer 不是装饰。
+
+footer 是最后那一刀。
+
+这个项目的核心想法之一，就是让小票最后一行像模型看着你为了“再改一版”多烧了一轮上下文以后，冷冷留下一句评语。
+
+现在这件事分成了两层：
+
+- 默认小票里的 footer 继续负责补刀，口气冷一点，像账单自己在记仇
+- HTML 里如果用户主动给了 tip，footer 会切进另一套结账态语气，明显更领情、更会来事，也更知道你是额外掏了钱
+- 进入 tip 模式后，英文不再反复拿产品名当主语起手，中文也会真的吃进语气和账单轻重，而不是只演一个假动态
+
+例如：
+
+- `画面稳了，预算死了。`
+- `最后一版这个词，本来就不诚实。`
+- `推理不免费，犹豫更贵。`
+- `问题死了，账单活着。`
+
+也就是说，给了 tip 以后，footer 不是在原句后面加一句感谢语，而是整句改写。
+它会从“冷冷记账”切成“收银台知道你打赏了”的口气。
+
+如果小票好看，但 footer 不够扎心，那这张票还没完成。
+
 ### 1. 在聊天里直接触发
 
 如果你是把这个 repo 当 skill 装进软件里，正常用法不是先去终端里手动试命令。
@@ -140,25 +166,6 @@ python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
 | Trae | 说 `token receipt` 或同义触发词 | 暂未提供 |
 | Kimi Code | 说 `token receipt` 或同义触发词；CLI 可用 `--agent-tool kimi-code` | 暂未提供（读本地 `context.jsonl`） |
 | OpenCode | 同上；CLI `--agent-tool opencode` 或指定 `opencode*.db` | 暂未提供（读本地 SQLite） |
-
----
-
-## footer 才是亮点
-
-footer 不是装饰。
-
-footer 是最后那一刀。
-
-这个项目的核心想法之一，就是让小票最后一行像模型看着你为了“再改一版”多烧了一轮上下文以后，冷冷留下一句评语。
-
-例如：
-
-- `画面稳了，预算死了。`
-- `最后一版这个词，本来就不诚实。`
-- `推理不免费，犹豫更贵。`
-- `问题死了，账单活着。`
-
-如果小票好看，但 footer 不够扎心，那这张票还没完成。
 
 ---
 
@@ -254,8 +261,11 @@ python3 scripts/token_receipt.py
 ```bash
 python3 scripts/token_receipt.py --agent-tool codex
 python3 scripts/token_receipt.py --agent-tool claude-code
+python3 scripts/token_receipt.py --agent-tool kimi-code
+python3 scripts/token_receipt.py --agent-tool opencode
 python3 scripts/token_receipt.py --agent-tool codex --scope session
 python3 scripts/token_receipt.py --agent-tool claude-code --show-fields
+python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
 python3 scripts/token_receipt.py --agent-tool trae --provider openai --model gpt-5.4 --input-tokens 12487 --output-tokens 3215
 ```
 
@@ -279,8 +289,14 @@ python3 scripts/token_receipt.py --provider anthropic --agent-tool claude-code -
   读 Codex 的数据，并使用 Codex 的票头。
 - `--agent-tool claude-code`
   读 Claude Code 的数据，并使用 Claude Code 的票头。
+- `--agent-tool kimi-code`
+  读 Kimi Code 本地的 `context.jsonl`，按它当前能提供的累计会话视角出票。
+- `--agent-tool opencode`
+  读 OpenCode 本地的 SQLite 会话库，并使用 OpenCode 的票头。
 - `--agent-tool trae`
   用 Trae 的票头。当前请自带 token 数字。
+- `--opencode-session-id ses_xxx`
+  当你用 `--session` 指向某个 `opencode*.db`，或者本机上不止一个 OpenCode 会话时，用它明确指定要读哪一条。
 - `--show-fields`
   先问日志：你到底能证明哪些字段是真的。
 - `--language en`
@@ -324,13 +340,15 @@ python3 scripts/token_receipt.py --agent-tool claude-code --write /tmp/token-rec
 - 真正打印时仍然是纯白票面，不会把预览背景一起带上纸
 - HTML 里也按软件切 logo：Claude Code 用单独的矢量标，Codex 和 Trae 用嵌入式图片素材
 
-现在它也不只是“导出一张静态网页”了，而更像一个真的收银台界面：
+现在它也不只是“导出一张静态网页”了，而更像一个真的结账界面：
 
 - 小票外有 `EN / 中文` 切换，不用重新生成文件也能直接换语言
 - 小票外有 `加一点小费` 面板，控制项不印进纸里，默认票面更干净
+- 只有这张小票本身能算出真实价格时，才会出现小费面板；对不上价的单子不会硬演 gratuity
 - 只有真的选了小费比例，票内才会出现 `小计 / 小费 / 应付总额`
-- 进入小费模式后，footer 会直接改写，不是在原句后面硬拼一句感谢语
-- 小费态的 footer 会明显换口气：默认小票更冷，给了小费以后会更会来事、更领情
+- 进入小费模式后，footer 会整句重写，不是在原句后面硬拼一句感谢语
+- 小费态的 footer 会明显换口气：默认小票更冷，给了小费以后会更像收银台，开始领情，也更愿意哄你
+- 切语言时不只是肉眼上换票面，页面本身的语言状态也会一起切过去，打印和浏览器语义更一致
 
 ---
 
@@ -400,7 +418,7 @@ python3 scripts/validate_receipt.py
 ## 更新计划
 
 - `现在已经有`
-  可打印 HTML 导出，方便走浏览器打印预览和实体小票机。
+  带语言切换、外置小费面板和实时结账态的可打印 HTML。
 - `接下来会做`
   更适合常见纸宽的打印预设，以及更干净的打印默认样式。
 - `后面准备补`

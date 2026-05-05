@@ -7,12 +7,17 @@
 - HTML receipt language toggle (`EN / 中文`) outside the receipt body
 - External HTML tip panel with `15% / 18% / 20% / 25%` presets
 - Conditional `SUBTOTAL / TIP / GRAND TOTAL` rows that only appear after tip selection
+- Tip controls now only appear for receipts with a real priced subtotal
 
 ### Changed
 
 - HTML tip mode now replaces the original footer instead of appending a tail
 - Tip-aware footer generation now follows a separate tone path from the default receipt
-- Chinese tip footers were rewritten to avoid template-heavy phrasing and cleaner HTML spacing
+- HTML now uses raw footer lines for tip mode, which fixes Chinese spacing artifacts and keeps footer replacement clean
+- Chinese tip footers were rewritten into a more checkout-like, more grateful voice instead of template-heavy phrasing
+- Chinese tip footers now actually respond to style and bill-state signals instead of only scene + tip level
+- English tip footers no longer keep repeating the product name as the sentence subject
+- HTML language switching now updates the page-level `lang` state instead of only swapping the visible receipt
 
 ### Notes
 

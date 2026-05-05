@@ -345,6 +345,7 @@ def render_receipt_html(
             "        };\n"
             "        const applyLanguage = (lang) => {\n"
             "          activeLanguage = lang;\n"
+            "          document.documentElement.lang = lang;\n"
             "          receipts.forEach((receipt) => {\n"
             "            const active = receipt.dataset.language === lang;\n"
             "            receipt.classList.toggle('receipt--hidden', !active);\n"

@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from token_receipt.data import newest_claude_usage_file, requested_agent_tool, runtime_agent_tool, runtime_claude_session_id, runtime_opencode_session_id  # noqa: E402
 from token_receipt.models import printable_receipt_char, visual_display_width  # noqa: E402
+from token_receipt.render import zh_tip_footer_candidates  # noqa: E402
 
 SCRIPT = ROOT / "scripts" / "token_receipt.py"
 HOOK_SCRIPT = ROOT / "scripts" / "claude_session_end_hook.py"
@@ -83,6 +84,7 @@ def assert_html_receipt(text: str, must_contain: list[str], language: str = "en"
     assert "receipt-row" in text, "receipt rows missing"
     assert "receipt-barcode" in text, "barcode block missing"
     assert "receipt-language-panel" in text, "language toggle panel missing"
+    assert "document.documentElement.lang = lang;" in text, "html language should sync when toggling receipts"
     assert 'data-language-button="en"' in text, "english language button missing"
     assert 'data-language-button="zh-CN"' in text, "chinese language button missing"
     assert 'data-language="en"' in text, "english receipt view missing"
@@ -635,6 +637,16 @@ def main() -> int:
     assert all("打印效果" not in option["footer"] for option in zh_tip_payload["options"])
     assert all(" 。" not in option["footer"] and " ，" not in option["footer"] for option in zh_tip_payload["options"])
 
+    zh_snarky = zh_tip_footer_candidates("print", "snarky", "heavy", "standard", "OPENAI", 123456)
+    zh_dry = zh_tip_footer_candidates("print", "dry", "standard", "standard", "OPENAI", 123456)
+    zh_cache_heavy = zh_tip_footer_candidates("generic", "snarky", "cache_heavy", "generous", "OPENAI", 654321)
+    assert zh_snarky != zh_dry, "zh tip footer candidates should vary by style"
+    assert any("缓存" in line for line in zh_cache_heavy), "zh tip footer candidates should reflect cache-heavy bills"
+
+    light_lines = zh_tip_footer_candidates("generic", "snarky", "light", "standard", "OPENAI", 222)
+    heavy_lines = zh_tip_footer_candidates("generic", "snarky", "heavy", "standard", "OPENAI", 222)
+    assert light_lines != heavy_lines, "zh tip footer candidates should vary by bill state"
+
     dual_html_target = Path(tempfile.mkdtemp(prefix="token-receipt-dual-html-")) / "receipt.html"
     dual_export = run_case(
         "--provider", "anthropic",
@@ -660,6 +672,7 @@ def main() -> int:
     assert en_tip_payload["grandTotalLabel"] == "GRAND TOTAL"
     assert [option["percent"] for option in en_tip_payload["options"]] == [15, 18, 20, 25]
     assert all(option["footer"] != en_tip_payload["defaultFooter"] for option in en_tip_payload["options"])
+    assert all(not option["footer"].startswith("CHATGPT ") for option in en_tip_payload["options"]), "english tip footers should not repeat the product name as subject"
 
     claude_env = os.environ.copy()
     claude_env["HOME"] = str(claude_home)

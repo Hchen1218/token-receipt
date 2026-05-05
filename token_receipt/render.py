@@ -685,94 +685,95 @@ def zh_tip_subject(scene: str, brand: str) -> str:
         return "README"
     if scene == "pricing":
         return "价格这部分"
-    return brand
+    return "这一版"
 
 
 def en_tip_footer_candidates(scene: str, style: str, bill_state: str, current_tip_state: str, brand: str) -> List[str]:
-    subject = en_tip_subject(scene, brand)
+    _ = scene
+    _ = brand
     if current_tip_state == "polite":
         if style == "snarky":
             lines = [
-                f"{subject} FINALLY LOOKS SETTLED. THAT TIP WAS SMALL BUT CORRECT.",
-                f"{subject} HELD TOGETHER. THE REGISTER CALLS THAT POLITE.",
-                f"{subject} LANDED CLEAN. SMALL KINDNESS NOTED.",
+                "FINALLY SETTLED. THAT TIP WAS SMALL BUT CORRECT.",
+                "HELD TOGETHER. THE REGISTER CALLS THAT POLITE.",
+                "LANDED CLEAN. SMALL KINDNESS NOTED.",
             ]
         elif style == "dry":
             lines = [
-                f"{subject} IS IN PLACE. A POLITE GRATUITY WAS RECORDED.",
-                f"{subject} IS STABLE. SMALL SUPPORT WAS APPLIED.",
-                f"{subject} IS READY. THE TIP ENTRY WAS ACCEPTED.",
+                "IN PLACE NOW. A POLITE GRATUITY WAS RECORDED.",
+                "STABLE ENOUGH. SMALL SUPPORT WAS APPLIED.",
+                "READY TO GO. THE TIP ENTRY WAS ACCEPTED.",
             ]
         else:
             lines = [
-                f"{subject} IS IN A BETTER PLACE NOW. THANKS FOR THE EXTRA NOD.",
-                f"{subject} SETTLED DOWN. THAT LITTLE BIT OF KINDNESS HELPED.",
-                f"{subject} LOOKS RIGHT. POLITE SUPPORT RECEIVED.",
+                "IN A BETTER PLACE NOW. THANKS FOR THE EXTRA NOD.",
+                "SETTLED DOWN. THAT LITTLE BIT OF KINDNESS HELPED.",
+                "LOOKING RIGHT NOW. POLITE SUPPORT RECEIVED.",
             ]
     elif current_tip_state == "standard":
         if style == "snarky":
             lines = [
-                f"{subject} FINALLY LANDED. STANDARD KINDNESS ACCEPTED.",
-                f"{subject} LOOKS RIGHT NOW. THE COUNTER APPROVES.",
-                f"{subject} STOPPED ARGUING. GRATUITY NOTED WITHOUT DRAMA.",
+                "FINALLY LANDED. STANDARD KINDNESS ACCEPTED.",
+                "LOOKS RIGHT NOW. THE COUNTER APPROVES.",
+                "STOPPED ARGUING. GRATUITY NOTED WITHOUT DRAMA.",
             ]
         elif style == "dry":
             lines = [
-                f"{subject} IS NOW STABLE. STANDARD GRATUITY APPLIED.",
-                f"{subject} HAS BEEN SETTLED. STANDARD TIP RECORDED.",
-                f"{subject} IS READY. THE EXTRA WAS APPROVED AT CHECKOUT.",
+                "NOW STABLE. STANDARD GRATUITY APPLIED.",
+                "SETTLED AT LAST. STANDARD TIP RECORDED.",
+                "READY FOR CHECKOUT. THE EXTRA WAS APPROVED.",
             ]
         else:
             lines = [
-                f"{subject} FINALLY FEELS COMPLETE. THANKS, THAT WAS THE RIGHT KIND OF GENEROUS.",
-                f"{subject} LOOKS BETTER NOW. SOLID GRATUITY. GOOD FORM.",
-                f"{subject} HELD UP WELL. STANDARD KINDNESS LANDED.",
+                "FINALLY FEELS COMPLETE. THANKS, THAT WAS THE RIGHT KIND OF GENEROUS.",
+                "LOOKS BETTER NOW. SOLID GRATUITY. GOOD FORM.",
+                "HELD UP WELL. STANDARD KINDNESS LANDED.",
             ]
     elif current_tip_state == "generous":
         if style == "snarky":
             lines = [
-                f"{subject} LOOKS EXPENSIVE IN THE RIGHT WAY. GENEROSITY DETECTED.",
-                f"{subject} FINALLY BEHAVED. THE REGISTER FELT THAT ONE.",
-                f"{subject} CAME TOGETHER. THIS TIP HAD OPINIONS.",
+                "LOOKS EXPENSIVE IN THE RIGHT WAY. GENEROSITY DETECTED.",
+                "FINALLY BEHAVED. THE REGISTER FELT THAT ONE.",
+                "CAME TOGETHER. THIS TIP HAD OPINIONS.",
             ]
         elif style == "dry":
             lines = [
-                f"{subject} IS NOW SETTLED. GENEROSITY RECORDED.",
-                f"{subject} IS IN GOOD SHAPE. HIGH GRATUITY APPLIED.",
-                f"{subject} IS READY FOR PRINT. THE EXTRA WAS NOTED.",
+                "NOW SETTLED. GENEROSITY RECORDED.",
+                "IN GOOD SHAPE. HIGH GRATUITY APPLIED.",
+                "READY FOR PRINT. THE EXTRA WAS NOTED.",
             ]
         else:
             lines = [
-                f"{subject} LOOKS GOOD NOW. THANKS, THE CLERK FEELS SEEN.",
-                f"{subject} FINALLY LANDED. THIS WAS GENEROUS IN A USEFUL WAY.",
-                f"{subject} IS IN PLACE. THE EXTRA LANDED WELL.",
+                "LOOKS GOOD NOW. THANKS, THE CLERK FEELS SEEN.",
+                "FINALLY LANDED. THIS WAS GENEROUS IN A USEFUL WAY.",
+                "IN PLACE NOW. THE EXTRA LANDED WELL.",
             ]
     else:
         if style == "snarky":
             lines = [
-                f"{subject} IS LOCKED IN. THIS WAS LESS A TIP THAN A POSITION.",
-                f"{subject} FINALLY HAS ITS SHAPE. THE REGISTER GOT THE MESSAGE.",
-                f"{subject} LANDED HARD. THAT GRATUITY MADE THE POINT CLEAR.",
+                "LOCKED IN. THIS WAS LESS A TIP THAN A POSITION.",
+                "FINALLY HAS ITS SHAPE. THE REGISTER GOT THE MESSAGE.",
+                "LANDED HARD. THAT GRATUITY MADE THE POINT CLEAR.",
             ]
         elif style == "dry":
             lines = [
-                f"{subject} IS NOW FINAL. A LARGE GRATUITY WAS APPLIED.",
-                f"{subject} IS COMPLETE. LAVISH SUPPORT WAS RECORDED.",
-                f"{subject} IS READY. THE EXTRA EXCEEDED NORMAL CHECKOUT.",
+                "NOW FINAL. A LARGE GRATUITY WAS APPLIED.",
+                "COMPLETE AT LAST. LAVISH SUPPORT WAS RECORDED.",
+                "READY TO CLOSE. THE EXTRA EXCEEDED NORMAL CHECKOUT.",
             ]
         else:
             lines = [
-                f"{subject} FEELS COMPLETE NOW. THANKS, THAT WAS OPENLY KIND.",
-                f"{subject} FINALLY LOOKS RIGHT. THIS RECEIPT WILL REMEMBER YOU FONDLY.",
-                f"{subject} LANDED WELL. THE COUNTER APPRECIATES THE COMMITMENT.",
+                "FEELS COMPLETE NOW. THANKS, THAT WAS OPENLY KIND.",
+                "FINALLY LOOKS RIGHT. THIS RECEIPT WILL REMEMBER YOU FONDLY.",
+                "LANDED WELL. THE COUNTER APPRECIATES THE COMMITMENT.",
             ]
 
     if bill_state == "heavy":
-        lines.append(f"{subject} TOOK A REAL BILL TO LAND. THE EXTRA STILL LOOKS DELIBERATE.")
+        lines.append("TOOK A REAL BILL TO GET HERE. THE EXTRA STILL LOOKS DELIBERATE.")
     elif bill_state == "reasoning_heavy":
-        lines.append(f"{subject} SURVIVED THE THINKING BILL. THE GRATUITY STILL LANDED CLEAN.")
+        lines.append("COST A FAIR BIT OF THINKING. THE GRATUITY STILL LANDED CLEAN.")
     elif bill_state == "cache_heavy":
-        lines.append(f"{subject} GOT HELP FROM CACHE. THE EXTRA STILL COUNTS.")
+        lines.append("CACHE DID SOME OF THE LIFTING. THE EXTRA STILL COUNTS.")
     return lines
 
 
@@ -784,8 +785,6 @@ def zh_tip_footer_candidates(
     brand: str,
     digest: int,
 ) -> List[str]:
-    _ = style
-    _ = brand
     base: dict[str, dict[str, List[str]]] = {
         "footer": {
             "polite": [
@@ -988,9 +987,131 @@ def zh_tip_footer_candidates(
     }
 
     scene_key = scene if scene in base else "generic"
+    subject = zh_tip_subject(scene_key, brand)
     lines = list(base[scene_key][current_tip_state])
-    _ = bill_state
-    return lines
+
+    style_overrides: dict[str, dict[str, List[str]]] = {
+        "snarky": {
+            "polite": [
+                "钱不算多，姿态已经给够了。",
+                "这一点意思不重，场面倒是顾全了。",
+            ],
+            "standard": [
+                "这笔给得挺懂规矩，收银台记住了。",
+                "这份体面不算夸张，刚好够它改口。",
+            ],
+            "generous": [
+                "这一笔一下去，账单都学会看人下菜了。",
+                "钱给得挺会挑时候，收银台立刻学乖了。",
+            ],
+            "lavish": [
+                "这已经不是加一点，是顺手把它供起来了。",
+                "这一笔给得太明白，收银台都知道该站哪边了。",
+            ],
+        },
+        "dry": {
+            "polite": [
+                "意思到了，单据知道。",
+                "金额不大，谢意成立。",
+            ],
+            "standard": [
+                "体面已到账，票面确认。",
+                "这笔额外费用，已被收银台记录。",
+            ],
+            "generous": [
+                "额外金额已记录，口气随之放软。",
+                "出手明显，票面确认。",
+            ],
+            "lavish": [
+                "大额谢意已记录，场面随之改变。",
+                "这一笔超出礼数，收银台确认。",
+            ],
+        },
+        "encouraging": {
+            "polite": [
+                f"{subject}已经顺下来了，这点心意来得正好。",
+                "这一下不重，但足够让场面好看。",
+            ],
+            "standard": [
+                f"{subject}已经站住了，这份体面给得刚刚好。",
+                "这一笔落得很稳，连语气都跟着变好了。",
+            ],
+            "generous": [
+                f"{subject}现在挺有样子，您这笔确实会抬场。",
+                "这一笔一到，整张票都像被顺手提了一下气色。",
+            ],
+            "lavish": [
+                f"{subject}现在是真有面子了，您这一下给得很够意思。",
+                "这笔一上来，整张票都像有人替它撑腰了。",
+            ],
+        },
+    }
+
+    bill_overrides: dict[str, dict[str, List[str]]] = {
+        "heavy": {
+            "polite": [
+                "单子本来就不轻，您这点意思反而更显眼。",
+            ],
+            "standard": [
+                "账单已经不算客气了，您这笔倒还给了台阶。",
+            ],
+            "generous": [
+                "这单子本来就挺敢开，您还顺手把场面补圆了。",
+            ],
+            "lavish": [
+                "账单都开成这样了，您这一笔还是给得像在罩着它。",
+            ],
+        },
+        "reasoning_heavy": {
+            "polite": [
+                "这轮想得不少，您这点意思倒也来得很识趣。",
+            ],
+            "standard": [
+                "推理费已经说够话了，您这笔又替它补了语气。",
+            ],
+            "generous": [
+                "这轮脑力税不轻，您这一下倒像在替它善后。",
+            ],
+            "lavish": [
+                "它已经把思考费写在脸上了，您这笔还照样给得很大方。",
+            ],
+        },
+        "cache_heavy": {
+            "polite": [
+                "缓存帮它省了点脸，您这点意思还是另算的。",
+            ],
+            "standard": [
+                "缓存替它挡了一半，您这笔还是照样算体面。",
+            ],
+            "generous": [
+                "缓存都替它省着花了，您这一笔反倒更像偏爱。",
+            ],
+            "lavish": [
+                "它都知道拿缓存省钱了，您这一笔还是给得像在宠着它。",
+            ],
+        },
+    }
+
+    style_lines = style_overrides.get(style, style_overrides["snarky"])[current_tip_state]
+    bill_lines = bill_overrides.get(bill_state, {}).get(current_tip_state, [])
+
+    if style == "snarky":
+        candidates = style_lines + lines + bill_lines
+    elif style == "dry":
+        candidates = lines[:1] + style_lines + lines[1:] + bill_lines
+    else:
+        candidates = lines + style_lines + bill_lines
+
+    deduped: List[str] = []
+    seen: set[str] = set()
+    rotate = digest % max(len(candidates), 1)
+    ordered = candidates[rotate:] + candidates[:rotate]
+    for line in ordered:
+        if line in seen:
+            continue
+        deduped.append(line)
+        seen.add(line)
+    return deduped
 
 
 def auto_tip_footer(
