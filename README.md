@@ -325,6 +325,14 @@ The current HTML path is tuned for the same three things people actually notice:
 - a pure white print result, so the browser preview does not lie about the final paper
 - software-aware logos in HTML too: Claude Code uses a dedicated vector mark, while Codex and Trae use embedded image assets
 
+And now it behaves more like an actual checkout surface instead of a dead export:
+
+- an `EN / 中文` toggle outside the receipt, so one printable page can flip languages without regenerating the file
+- an external `Add tip` panel, so the controls stay off the paper until you explicitly opt in
+- `SUBTOTAL / TIP / GRAND TOTAL` only show up inside the receipt after a tip is selected
+- tip mode replaces the original footer instead of appending a canned thank-you tail
+- tip-aware footers intentionally switch tone: the default receipt stays colder, the tipped receipt gets noticeably more grateful and performative
+
 ---
 
 ## Claude Code auto-trigger

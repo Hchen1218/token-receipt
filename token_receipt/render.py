@@ -434,6 +434,32 @@ def footer_topic(theme: str, hint: str, digest: int) -> str:
     return choose(options, digest, 8)
 
 
+def footer_scene(theme: str, hint: str) -> str:
+    text = hint.lower()
+    scene_keywords = (
+        ("logo", ("logo", "icon", "brand", "header", "螃蟹", "像素", "图标")),
+        ("footer", ("footer", "文案", "标语", "结尾", "收尾", "punchline")),
+        ("preview", ("preview", "align", "alignment", "layout", "spacing", "居中", "对齐", "预览", "间距", "版式")),
+        ("print", ("html", "print", "printer", "打印", "热敏纸", "纸张", "receipt html")),
+        ("receipt", ("receipt", "bill", "invoice", "小票", "账单", "票面")),
+        ("trigger", ("trigger", "hook", "sessionend", "自动触发", "触发词", "hook")),
+        ("readme", ("readme", "docs", "documentation", "文档", "预览块")),
+        ("pricing", ("pricing", "price", "estimate", "cost", "价格", "预估", "计价", "成本")),
+    )
+    for scene, words in scene_keywords:
+        if contains_any(text, words):
+            return scene
+    if theme == "visual":
+        return "preview"
+    if theme == "pricing":
+        return "pricing"
+    if theme == "shipping":
+        return "receipt"
+    if theme == "debug":
+        return "trigger" if contains_any(text, ("hook", "trigger", "自动触发")) else "receipt"
+    return "generic"
+
+
 def footer_snark_candidates(theme: str, topic: str, brand: str) -> List[str]:
     if theme == "visual":
         return [
@@ -594,6 +620,424 @@ def footer_encouraging_candidates(theme: str, topic: str, brand: str) -> List[st
         "THIS COST TOKENS. IT ALSO MOVED.",
         f"{brand} KEPT GOING. SO DID YOU.",
     ]
+
+
+def footer_bill_state(snapshot: UsageSnapshot, estimate: PriceEstimate) -> str:
+    if snapshot.reasoning_output_tokens and snapshot.reasoning_output_tokens >= max(64, snapshot.output_tokens // 3):
+        return "reasoning_heavy"
+    if snapshot.input_tokens and snapshot.cached_input_tokens >= max(1, snapshot.input_tokens // 2):
+        return "cache_heavy"
+    amount = float(estimate.amount or 0.0)
+    if amount >= 0.5:
+        return "heavy"
+    if amount >= 0.1:
+        return "medium"
+    return "light"
+
+
+def tip_state(percent: float | int | None) -> str:
+    value = float(percent or 0.0)
+    if value <= 0:
+        return "none"
+    if value >= 25:
+        return "lavish"
+    if value >= 20:
+        return "generous"
+    if value >= 18:
+        return "standard"
+    return "polite"
+
+
+def en_tip_subject(scene: str, brand: str) -> str:
+    if scene == "logo":
+        return "THE LOGO"
+    if scene == "footer":
+        return "THE SIGN-OFF"
+    if scene == "preview":
+        return "THE PREVIEW"
+    if scene == "print":
+        return "THE PRINT VIEW"
+    if scene == "receipt":
+        return "THE RECEIPT"
+    if scene == "trigger":
+        return "THE TRIGGER"
+    if scene == "readme":
+        return "THE README"
+    if scene == "pricing":
+        return "THE PRICE TAG"
+    return brand
+
+
+def zh_tip_subject(scene: str, brand: str) -> str:
+    if scene == "logo":
+        return "Logo"
+    if scene == "footer":
+        return "收尾"
+    if scene == "preview":
+        return "预览"
+    if scene == "print":
+        return "打印效果"
+    if scene == "receipt":
+        return "这张小票"
+    if scene == "trigger":
+        return "触发逻辑"
+    if scene == "readme":
+        return "README"
+    if scene == "pricing":
+        return "价格这部分"
+    return brand
+
+
+def en_tip_footer_candidates(scene: str, style: str, bill_state: str, current_tip_state: str, brand: str) -> List[str]:
+    subject = en_tip_subject(scene, brand)
+    if current_tip_state == "polite":
+        if style == "snarky":
+            lines = [
+                f"{subject} FINALLY LOOKS SETTLED. THAT TIP WAS SMALL BUT CORRECT.",
+                f"{subject} HELD TOGETHER. THE REGISTER CALLS THAT POLITE.",
+                f"{subject} LANDED CLEAN. SMALL KINDNESS NOTED.",
+            ]
+        elif style == "dry":
+            lines = [
+                f"{subject} IS IN PLACE. A POLITE GRATUITY WAS RECORDED.",
+                f"{subject} IS STABLE. SMALL SUPPORT WAS APPLIED.",
+                f"{subject} IS READY. THE TIP ENTRY WAS ACCEPTED.",
+            ]
+        else:
+            lines = [
+                f"{subject} IS IN A BETTER PLACE NOW. THANKS FOR THE EXTRA NOD.",
+                f"{subject} SETTLED DOWN. THAT LITTLE BIT OF KINDNESS HELPED.",
+                f"{subject} LOOKS RIGHT. POLITE SUPPORT RECEIVED.",
+            ]
+    elif current_tip_state == "standard":
+        if style == "snarky":
+            lines = [
+                f"{subject} FINALLY LANDED. STANDARD KINDNESS ACCEPTED.",
+                f"{subject} LOOKS RIGHT NOW. THE COUNTER APPROVES.",
+                f"{subject} STOPPED ARGUING. GRATUITY NOTED WITHOUT DRAMA.",
+            ]
+        elif style == "dry":
+            lines = [
+                f"{subject} IS NOW STABLE. STANDARD GRATUITY APPLIED.",
+                f"{subject} HAS BEEN SETTLED. STANDARD TIP RECORDED.",
+                f"{subject} IS READY. THE EXTRA WAS APPROVED AT CHECKOUT.",
+            ]
+        else:
+            lines = [
+                f"{subject} FINALLY FEELS COMPLETE. THANKS, THAT WAS THE RIGHT KIND OF GENEROUS.",
+                f"{subject} LOOKS BETTER NOW. SOLID GRATUITY. GOOD FORM.",
+                f"{subject} HELD UP WELL. STANDARD KINDNESS LANDED.",
+            ]
+    elif current_tip_state == "generous":
+        if style == "snarky":
+            lines = [
+                f"{subject} LOOKS EXPENSIVE IN THE RIGHT WAY. GENEROSITY DETECTED.",
+                f"{subject} FINALLY BEHAVED. THE REGISTER FELT THAT ONE.",
+                f"{subject} CAME TOGETHER. THIS TIP HAD OPINIONS.",
+            ]
+        elif style == "dry":
+            lines = [
+                f"{subject} IS NOW SETTLED. GENEROSITY RECORDED.",
+                f"{subject} IS IN GOOD SHAPE. HIGH GRATUITY APPLIED.",
+                f"{subject} IS READY FOR PRINT. THE EXTRA WAS NOTED.",
+            ]
+        else:
+            lines = [
+                f"{subject} LOOKS GOOD NOW. THANKS, THE CLERK FEELS SEEN.",
+                f"{subject} FINALLY LANDED. THIS WAS GENEROUS IN A USEFUL WAY.",
+                f"{subject} IS IN PLACE. THE EXTRA LANDED WELL.",
+            ]
+    else:
+        if style == "snarky":
+            lines = [
+                f"{subject} IS LOCKED IN. THIS WAS LESS A TIP THAN A POSITION.",
+                f"{subject} FINALLY HAS ITS SHAPE. THE REGISTER GOT THE MESSAGE.",
+                f"{subject} LANDED HARD. THAT GRATUITY MADE THE POINT CLEAR.",
+            ]
+        elif style == "dry":
+            lines = [
+                f"{subject} IS NOW FINAL. A LARGE GRATUITY WAS APPLIED.",
+                f"{subject} IS COMPLETE. LAVISH SUPPORT WAS RECORDED.",
+                f"{subject} IS READY. THE EXTRA EXCEEDED NORMAL CHECKOUT.",
+            ]
+        else:
+            lines = [
+                f"{subject} FEELS COMPLETE NOW. THANKS, THAT WAS OPENLY KIND.",
+                f"{subject} FINALLY LOOKS RIGHT. THIS RECEIPT WILL REMEMBER YOU FONDLY.",
+                f"{subject} LANDED WELL. THE COUNTER APPRECIATES THE COMMITMENT.",
+            ]
+
+    if bill_state == "heavy":
+        lines.append(f"{subject} TOOK A REAL BILL TO LAND. THE EXTRA STILL LOOKS DELIBERATE.")
+    elif bill_state == "reasoning_heavy":
+        lines.append(f"{subject} SURVIVED THE THINKING BILL. THE GRATUITY STILL LANDED CLEAN.")
+    elif bill_state == "cache_heavy":
+        lines.append(f"{subject} GOT HELP FROM CACHE. THE EXTRA STILL COUNTS.")
+    return lines
+
+
+def zh_tip_footer_candidates(
+    scene: str,
+    style: str,
+    bill_state: str,
+    current_tip_state: str,
+    brand: str,
+    digest: int,
+) -> List[str]:
+    _ = style
+    _ = brand
+    base: dict[str, dict[str, List[str]]] = {
+        "footer": {
+            "polite": [
+                "现在收得挺顺，您这点心意它领得起。",
+                "尾巴总算收圆了，这一笔，收银台先替它道谢。",
+                "这回落笔挺漂亮，小费不大，排面给足了。",
+            ],
+            "standard": [
+                "这回收得很体面，您这笔像专门来抬轿。",
+                "末尾终于有劲了，收银台替它领了这份好意。",
+                "这一收，连标点都跟着有了底气。",
+            ],
+            "generous": [
+                "收得真像样了，您这一笔把气氛都养贵了。",
+                "这回末尾有排面了，收银台都替它把腰弯下去了。",
+                "一句落稳，整张票都像被您请客了。",
+            ],
+            "lavish": [
+                "这回收得像压轴，您这不是给小费，是给它抬身价。",
+                "末尾现在有脸见人了，收银台差点替它起立。",
+                "这一收，连账单都被您哄得会笑了。",
+            ],
+        },
+        "print": {
+            "polite": [
+                "这回终于能落纸了，您这点心意连打印机都哄好了。",
+                "纸面终于不闹了，这一笔刚好够它收敛脾气。",
+                "这张纸总算肯配合了，收银台替它先说声谢谢。",
+            ],
+            "standard": [
+                "打印终于不翻车了，您这笔像在给纸面赔了个笑脸。",
+                "这回终于能直接出纸了，这份体面给得很会挑时候。",
+                "纸面终于服帖了，收银台看得出您是真心想哄好它。",
+            ],
+            "generous": [
+                "打印终于像样了，您这一笔给得，纸都不好意思卡了。",
+                "这张纸总算争气了，收银台已经替它低头致谢了。",
+                "终于能直接拿去打印了，这份小费把场面养得很体面。",
+            ],
+            "lavish": [
+                "纸面终于活过来了，您这一下给得像在给它续命。",
+                "打印终于不丢人了，这笔一上来，连卡纸都得讲礼貌。",
+                "这张纸终于肯站队了，收银台已经想替它鞠个躬。",
+            ],
+        },
+        "preview": {
+            "polite": [
+                "预览终于不别扭了，您这点心意刚好把它哄顺了。",
+                "这一版总算站住了，这笔不大，排面倒是补上了。",
+                "版面终于顺下来了，收银台替眼睛先领这份情。",
+            ],
+            "standard": [
+                "版面终于顺眼了，您这笔像在给审美发补贴。",
+                "预览终于安静了，这份体面来得很会做人。",
+                "这一版终于立住了，收银台看得出您是来哄场面的。",
+            ],
+            "generous": [
+                "这版终于能看了，您这笔一到，像素都开始懂事了。",
+                "预览终于收声了，这份小费把脾气养得很温顺。",
+                "版面终于站稳了，收银台已经替它学会说谢谢了。",
+            ],
+            "lavish": [
+                "这一屏终于服帖了，您这已经不是小费，是宠爱。",
+                "预览终于闭嘴了，这一笔下去，连焦虑都得改口叫您老板。",
+                "这版终于彻底站住了，收银台都快替它喊声恩人了。",
+            ],
+        },
+        "logo": {
+            "polite": [
+                "Logo 终于站正了，您这点心意把它哄得很服帖。",
+                "抬头总算安分了，这一笔不大，脸面倒是有了。",
+                "这块图标终于不闹了，收银台替它先谢谢您。",
+            ],
+            "standard": [
+                "Logo 终于对齐了，您这笔像在给它发调教奖金。",
+                "抬头终于不斜了，这份体面给得像老手。",
+                "这块标终于站住了，收银台看得出您是真想把它宠好。",
+            ],
+            "generous": [
+                "Logo 终于能见人了，您这笔给得像是专门替它撑场。",
+                "抬头终于服帖了，这份小费一下就把脾气养软了。",
+                "这块图标终于稳了，收银台已经替它把腰弯下去了。",
+            ],
+            "lavish": [
+                "Logo 终于像样了，您这一笔下去，它都快以为自己是主角了。",
+                "抬头终于立住了，这份出手已经够它记一辈子。",
+                "这块图标终于争气了，收银台现在只想替它谢谢老板。",
+            ],
+        },
+        "receipt": {
+            "polite": [
+                "这张票终于像真账单了，您这点心意把它抬得很体面。",
+                "这张票总算能见人了，这笔刚好给它补足了脸色。",
+                "这张票终于立住了，收银台替它先领这份情。",
+            ],
+            "standard": [
+                "这张票终于像回事了，您这笔像在给账单发体面费。",
+                "这张票终于顺眼了，这份小费来得很会挑时候。",
+                "这张票终于收住了，收银台看得出您是来给它撑腰的。",
+            ],
+            "generous": [
+                "这张票终于拿得出手了，您这笔给得像替它补了排面。",
+                "这张票终于立住了，这份小费一下就让它有了底气。",
+                "这张票终于像在认真结账了，收银台替它把谢谢都说重了。",
+            ],
+            "lavish": [
+                "这张票终于像张真凭据了，您这已经不是给小费，是给它长脸。",
+                "这张票终于彻底站住了，这一笔下去，它都快想叫您贵人。",
+                "这张票终于争气了，收银台替它把感激写进抬头里了。",
+            ],
+        },
+        "readme": {
+            "polite": [
+                "这一页终于能放出来了，您这点心意把它衬得更体面了。",
+                "这版 README 总算顺了，这一笔刚好够它把腰挺直。",
+                "这块说明终于不别扭了，收银台替它先把谢意领了。",
+            ],
+            "standard": [
+                "这一页终于能见人了，您这笔像在给文案发体面补贴。",
+                "README 终于顺眼了，这份小费把场面哄得很服帖。",
+                "这块说明终于立住了，收银台看得出您是真宠它。",
+            ],
+            "generous": [
+                "这一页终于像样了，您这笔给得像在替它撑场面。",
+                "README 终于服帖了，这份小费把脾气一下养软了。",
+                "这块说明终于能打了，收银台都想替它道谢三次。",
+            ],
+            "lavish": [
+                "这一页终于站稳了，您这已经不是给小费，是给体面续命。",
+                "README 总算争气了，这一笔下去，它都快学会鞠躬了。",
+                "这块说明终于能拿去见人了，收银台替它记下这份恩情了。",
+            ],
+        },
+        "pricing": {
+            "polite": [
+                "这次终于像在认真结账了，您这点心意把心虚都压下去了。",
+                "数字终于站住了，这一笔不大，排面倒是给足了。",
+                "这一栏总算不抖了，收银台替它先谢谢您。",
+            ],
+            "standard": [
+                "这回终于像真收银台了，您这笔像在给账单发奖金。",
+                "数字终于说人话了，这份体面来得很会挑时候。",
+                "这一栏终于稳住了，收银台认这份会来事。",
+            ],
+            "generous": [
+                "这次终于真像在买单了，您这笔给得比数字还痛快。",
+                "数字终于不飘了，这份小费一下把脸色养好了。",
+                "这一栏终于能看了，收银台都想替它喊声老板大气。",
+            ],
+            "lavish": [
+                "这次终于像在当场买单了，您这已经不是小费，是排面。",
+                "数字终于服帖了，这一笔下去，连账单都像被哄好了。",
+                "这一栏终于有了收银台的脸，收银台已经替它改口叫贵客了。",
+            ],
+        },
+        "trigger": {
+            "polite": [
+                "这回触发终于顺了，您这点心意刚好把逻辑哄住。",
+                "这次总算不用跟触发较劲了，这一笔来得很会做人。",
+                "这套逻辑终于不拧巴了，收银台替它先领这份情。",
+            ],
+            "standard": [
+                "这回触发终于对上了，您这笔像在给流程发奖金。",
+                "这次终于不用反复试了，这份体面把场面哄得很顺。",
+                "这套逻辑终于顺下来了，收银台认这份会来事。",
+            ],
+            "generous": [
+                "这回触发终于稳了，您这笔给得像在替它撑腰。",
+                "这次终于能一次过了，这份小费把脾气养得很软。",
+                "这套逻辑终于不拧了，收银台都快替它鞠躬了。",
+            ],
+            "lavish": [
+                "这回触发终于彻底服帖了，您这已经不是小费，是宠爱。",
+                "这次终于不用再追着试了，这一笔下去，连逻辑都学会感恩了。",
+                "这套逻辑终于争气了，收银台替它把谢意写满了全页。",
+            ],
+        },
+        "generic": {
+            "polite": [
+                "这一版终于顺下来了，您这点心意刚好把它哄顺了。",
+                "这回总算像样了，这一笔不大，脸面倒是补上了。",
+                "这轮终于能落地了，收银台先替它谢谢您。",
+            ],
+            "standard": [
+                "这一版终于站住了，您这笔像在给结果发体面费。",
+                "这回总算对味了，这份小费把场面哄得很顺。",
+                "这轮终于收住了，收银台认这份会来事。",
+            ],
+            "generous": [
+                "这一版终于能见人了，您这笔给得像在替它撑场面。",
+                "这回总算顺透了，这份小费把脾气都养软了。",
+                "这轮终于落住了，收银台已经替它把感谢说重了。",
+            ],
+            "lavish": [
+                "这一版终于彻底站住了，您这已经不是小费，是偏爱。",
+                "这回总算争气了，这一笔下去，连账单都想改口叫您老板。",
+                "这轮终于有了样子，收银台替它把感激写进眉眼里了。",
+            ],
+        },
+    }
+
+    scene_key = scene if scene in base else "generic"
+    lines = list(base[scene_key][current_tip_state])
+    _ = bill_state
+    return lines
+
+
+def auto_tip_footer(
+    snapshot: UsageSnapshot,
+    estimate: PriceEstimate,
+    tone: str,
+    width: int,
+    language: str,
+    hint: str = "",
+    tip_percent: float | int = 0,
+) -> str:
+    return fit_footer_text(
+        auto_tip_footer_line(snapshot, estimate, tone, language, hint, tip_percent),
+        width,
+        language,
+    )
+
+
+def auto_tip_footer_line(
+    snapshot: UsageSnapshot,
+    estimate: PriceEstimate,
+    tone: str,
+    language: str,
+    hint: str = "",
+    tip_percent: float | int = 0,
+) -> str:
+    language = canonical_language(language)
+    current_tip_state = tip_state(tip_percent)
+    if current_tip_state == "none":
+        return auto_footer_line(snapshot, estimate, tone, language, hint)
+
+    key = (
+        f"tip:{language}:{snapshot.provider}:{snapshot.model}:{snapshot.total_tokens}:"
+        f"{snapshot.cached_input_tokens}:{snapshot.reasoning_output_tokens}:{hint}:{tone}:"
+        f"{estimate.status}:{estimate.amount}:{tip_percent}"
+    )
+    digest = int(hashlib.sha1(key.encode("utf-8")).hexdigest()[:8], 16)
+    theme = footer_theme(snapshot, hint)
+    scene = footer_scene(theme, hint)
+    style = footer_style(snapshot, tone, hint, digest, language)
+    bill_state = footer_bill_state(snapshot, estimate)
+    brand = product_name(snapshot).upper()
+
+    if language == "zh-CN":
+        return choose(zh_tip_footer_candidates(scene, style, bill_state, current_tip_state, brand, digest), digest, 18)
+
+    return choose(en_tip_footer_candidates(scene, style, bill_state, current_tip_state, brand), digest, 18)
 
 
 def zh_footer_snark_candidates(theme: str) -> List[str]:
@@ -786,7 +1230,7 @@ def fit_footer_text(text: str, width: int, language: str) -> str:
     return left + "\n" + truncate_visual(right, max_line, language)
 
 
-def auto_footer(snapshot: UsageSnapshot, estimate: PriceEstimate, tone: str, width: int, language: str, hint: str = "") -> str:
+def auto_footer_line(snapshot: UsageSnapshot, estimate: PriceEstimate, tone: str, language: str, hint: str = "") -> str:
     language = canonical_language(language)
     key = f"{language}:{snapshot.provider}:{snapshot.model}:{snapshot.total_tokens}:{snapshot.cached_input_tokens}:{snapshot.reasoning_output_tokens}:{hint}:{tone}:{estimate.status}"
     digest = int(hashlib.sha1(key.encode("utf-8")).hexdigest()[:8], 16)
@@ -800,7 +1244,7 @@ def auto_footer(snapshot: UsageSnapshot, estimate: PriceEstimate, tone: str, wid
             candidates = zh_footer_dry_candidates(theme)
         else:
             candidates = zh_footer_encouraging_candidates(theme)
-        return fit_footer_text(choose(candidates, digest, 14), width, language)
+        return choose(candidates, digest, 14)
 
     topic = footer_topic(theme, hint, digest)
     if style == "snarky":
@@ -809,7 +1253,11 @@ def auto_footer(snapshot: UsageSnapshot, estimate: PriceEstimate, tone: str, wid
         candidates = footer_dry_candidates(theme, topic, brand)
     else:
         candidates = footer_encouraging_candidates(theme, topic, brand)
-    return fit_footer_text(choose(candidates, digest, 14), width, language)
+    return choose(candidates, digest, 14)
+
+
+def auto_footer(snapshot: UsageSnapshot, estimate: PriceEstimate, tone: str, width: int, language: str, hint: str = "") -> str:
+    return fit_footer_text(auto_footer_line(snapshot, estimate, tone, language, hint), width, language)
 
 
 def footer_lines(text: str, width: int, language: str) -> List[str]:

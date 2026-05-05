@@ -82,8 +82,26 @@ def assert_html_receipt(text: str, must_contain: list[str], language: str = "en"
     assert f'lang="{language}"' in text, f"expected html lang={language!r}"
     assert "receipt-row" in text, "receipt rows missing"
     assert "receipt-barcode" in text, "barcode block missing"
+    assert "receipt-language-panel" in text, "language toggle panel missing"
+    assert 'data-language-button="en"' in text, "english language button missing"
+    assert 'data-language-button="zh-CN"' in text, "chinese language button missing"
+    assert 'data-language="en"' in text, "english receipt view missing"
+    assert 'data-language="zh-CN"' in text, "chinese receipt view missing"
+    assert "receipt-tip-panel" in text, "external tip panel missing"
+    assert ".tip-options[hidden]" in text, "hidden tip options css missing"
     for needle in must_contain:
         assert needle in text, f"missing {needle!r}"
+
+
+def extract_tip_config(text: str) -> dict[str, object]:
+    start_marker = '<script id="tip-config" type="application/json">'
+    end_marker = "</script>"
+    start = text.find(start_marker)
+    assert start >= 0, "tip config script missing"
+    start += len(start_marker)
+    end = text.find(end_marker, start)
+    assert end >= 0, "tip config script not closed"
+    return json.loads(text[start:end])
 
 
 def extract_footer(text: str) -> list[str]:
@@ -600,7 +618,22 @@ def main() -> int:
     )
     assert quiet_html == ""
     saved_html = html_target.read_text(encoding="utf-8")
-    assert_html_receipt(saved_html, ["CLAUDE CODE", "感谢使用 Claude", "USD 预估", "打印测试通过。"], language="zh-CN")
+    assert_html_receipt(
+        saved_html,
+        ["CLAUDE CODE", "感谢使用 Claude", "USD 预估", "打印测试通过。", "加一点小费", "15%", "18%", "20%", "25%"],
+        language="zh-CN",
+    )
+    zh_tip_config = extract_tip_config(saved_html)
+    assert zh_tip_config["defaultLanguage"] == "zh-CN"
+    zh_tip_payload = zh_tip_config["tip"]["zh-CN"]
+    assert zh_tip_payload["language"] == "zh-CN"
+    assert zh_tip_payload["defaultFooter"] == "打印测试通过。"
+    assert zh_tip_payload["tipLabel"] == "小费"
+    assert zh_tip_payload["grandTotalLabel"] == "应付总额"
+    assert [option["percent"] for option in zh_tip_payload["options"]] == [15, 18, 20, 25]
+    assert all(option["footer"] != zh_tip_payload["defaultFooter"] for option in zh_tip_payload["options"])
+    assert all("打印效果" not in option["footer"] for option in zh_tip_payload["options"])
+    assert all(" 。" not in option["footer"] and " ，" not in option["footer"] for option in zh_tip_payload["options"])
 
     dual_html_target = Path(tempfile.mkdtemp(prefix="token-receipt-dual-html-")) / "receipt.html"
     dual_export = run_case(
@@ -614,7 +647,19 @@ def main() -> int:
     assert "CLAUDE CODE" in dual_export
     assert dual_export.startswith(" ")
     dual_saved_html = dual_html_target.read_text(encoding="utf-8")
-    assert_html_receipt(dual_saved_html, ["CLAUDE CODE", "THANK YOU FOR CODING WITH Claude", "USD ESTIMATE"], language="en")
+    assert_html_receipt(
+        dual_saved_html,
+        ["CLAUDE CODE", "THANK YOU FOR CODING WITH Claude", "USD ESTIMATE", "Add tip", "15%", "18%", "20%", "25%"],
+        language="en",
+    )
+    en_tip_config = extract_tip_config(dual_saved_html)
+    assert en_tip_config["defaultLanguage"] == "en"
+    en_tip_payload = en_tip_config["tip"]["en"]
+    assert en_tip_payload["language"] == "en"
+    assert en_tip_payload["tipLabel"] == "TIP"
+    assert en_tip_payload["grandTotalLabel"] == "GRAND TOTAL"
+    assert [option["percent"] for option in en_tip_payload["options"]] == [15, 18, 20, 25]
+    assert all(option["footer"] != en_tip_payload["defaultFooter"] for option in en_tip_payload["options"])
 
     claude_env = os.environ.copy()
     claude_env["HOME"] = str(claude_home)
