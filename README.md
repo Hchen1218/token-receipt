@@ -83,12 +83,6 @@ PRICE DATE                            2026-04-25
 
 There are three ways to use `token-receipt`.
 
-The short version:
-
-- say one sentence in chat and let it print the bill in place
-- install the Claude Code auto-trigger and let `SessionEnd` fire it for you
-- skip the skill path and run the CLI directly
-
 ### The footer is the feature
 
 The footer is not decoration.
@@ -248,76 +242,6 @@ Current receipts intentionally stay conservative about what they print:
 That policy is deliberate.
 
 Better to omit a field than lie with confidence.
-
----
-
-## Quick start
-
-No package manager is required right now.
-It runs on Python's standard library.
-
-```bash
-python3 scripts/token_receipt.py
-```
-
-If you run that inside Codex or Claude Code, the current software can be detected automatically.
-If you run it from a plain shell with multiple local software logs present, add `--agent-tool`.
-
-Useful software-specific examples:
-
-```bash
-python3 scripts/token_receipt.py --agent-tool codex
-python3 scripts/token_receipt.py --agent-tool claude-code
-python3 scripts/token_receipt.py --agent-tool kimi-code
-python3 scripts/token_receipt.py --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool codex --scope session
-python3 scripts/token_receipt.py --agent-tool claude-code --show-fields
-python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool trae --provider openai --model gpt-5.4 --input-tokens 12487 --output-tokens 3215
-```
-
-Useful rendering variants:
-
-```bash
-python3 scripts/token_receipt.py --width 48 --stream
-python3 scripts/token_receipt.py --agent-tool codex --language en
-python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
-python3 scripts/token_receipt.py --agent-tool claude-code --output html --write ./receipt.html
-python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_SESSION_ID}.json --write /tmp/token-receipt.txt
-python3 scripts/token_receipt.py --footer-tone snarky --conversation-summary "one more revision for visual polish"
-python3 scripts/token_receipt.py --provider anthropic --agent-tool claude-code --model claude-sonnet-4.5 --input-tokens 12487 --cached-input-tokens 8742 --output-tokens 3215
-```
-
-Inside Claude Code skills, `${CLAUDE_SESSION_ID}` resolves to the current Claude session.
-
-What those flags mean in plain English:
-
-- `--agent-tool codex`
-  Read Codex data and use the Codex receipt header.
-- `--agent-tool claude-code`
-  Read Claude Code data and use the Claude Code receipt header.
-- `--agent-tool kimi-code`
-  Read Kimi Code's local `context.jsonl` and print a receipt from the cumulative session view it exposes.
-- `--agent-tool opencode`
-  Read OpenCode's local SQLite sessions and use the OpenCode receipt header.
-- `--agent-tool trae`
-  Use Trae branding. For now, bring your own token counts.
-- `--opencode-session-id ses_xxx`
-  Pick a specific OpenCode session when you are pointing `--session` at an `opencode*.db` file or when more than one session exists locally.
-- `--show-fields`
-  Ask the logs what they can actually prove.
-- `--language en`
-  Print the English receipt.
-- `--language zh-CN`
-  Print the Chinese receipt without forking the layout.
-- `--output html`
-  Export a browser-printable receipt page instead of the monospace text artifact.
-- `--write /tmp/token-receipt.txt`
-  Save the receipt quietly instead of dumping it into Bash stdout. This is the cleaner path inside Claude Code chat.
-- `--write-html /tmp/token-receipt.html`
-  Keep the text receipt as the main artifact, but also save a printable HTML copy that can be linked back in hosts that support local file links.
-- `--stream`
-  Print like a machine that knows you spent too much.
 
 ---
 

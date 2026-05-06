@@ -83,12 +83,6 @@ USD 预估                                $0.062851
 
 `token-receipt` 有三种触发方式。
 
-最快的理解是：
-
-- 在聊天里直接说一句，让它当场结账
-- 在 Claude Code 里装上自动触发，结束会话就自动出票
-- 不走 skill，直接用 CLI 手动打票
-
 ### footer 才是亮点
 
 footer 不是装饰。
@@ -248,75 +242,6 @@ python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
 这个策略是故意的。
 
 宁可少打一项，也不乱打一项。
-
----
-
-## 快速开始
-
-目前不用装额外依赖，Python 标准库就能跑。
-
-```bash
-python3 scripts/token_receipt.py
-```
-
-如果是在 Codex 或 Claude Code 里面跑，当前软件可以被自动识别。
-如果是在普通 shell 里跑，而且本机同时有多套软件日志，就要显式加 `--agent-tool`。
-
-常用的软件级调用示例：
-
-```bash
-python3 scripts/token_receipt.py --agent-tool codex
-python3 scripts/token_receipt.py --agent-tool claude-code
-python3 scripts/token_receipt.py --agent-tool kimi-code
-python3 scripts/token_receipt.py --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool codex --scope session
-python3 scripts/token_receipt.py --agent-tool claude-code --show-fields
-python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool trae --provider openai --model gpt-5.4 --input-tokens 12487 --output-tokens 3215
-```
-
-常用的渲染参数：
-
-```bash
-python3 scripts/token_receipt.py --width 48 --stream
-python3 scripts/token_receipt.py --agent-tool codex --language en
-python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
-python3 scripts/token_receipt.py --agent-tool claude-code --output html --write ./receipt.html
-python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_SESSION_ID}.json --write /tmp/token-receipt.txt
-python3 scripts/token_receipt.py --footer-tone snarky --conversation-summary "one more revision for visual polish"
-python3 scripts/token_receipt.py --provider anthropic --agent-tool claude-code --model claude-sonnet-4.5 --input-tokens 12487 --cached-input-tokens 8742 --output-tokens 3215
-```
-
-在 Claude Code 的 skill 上下文里，`${CLAUDE_SESSION_ID}` 会被替换成当前会话 id。
-
-这些参数翻译成人话：
-
-- `--agent-tool codex`
-  读 Codex 的数据，并使用 Codex 的票头。
-- `--agent-tool claude-code`
-  读 Claude Code 的数据，并使用 Claude Code 的票头。
-- `--agent-tool kimi-code`
-  读 Kimi Code 本地的 `context.jsonl`，按它当前能提供的累计会话视角出票。
-- `--agent-tool opencode`
-  读 OpenCode 本地的 SQLite 会话库，并使用 OpenCode 的票头。
-- `--agent-tool trae`
-  用 Trae 的票头。当前请自带 token 数字。
-- `--opencode-session-id ses_xxx`
-  当你用 `--session` 指向某个 `opencode*.db`，或者本机上不止一个 OpenCode 会话时，用它明确指定要读哪一条。
-- `--show-fields`
-  先问日志：你到底能证明哪些字段是真的。
-- `--language en`
-  打印英文版小票。
-- `--language zh-CN`
-  打印中文版小票，但不另起一套排版逻辑。
-- `--output html`
-  导出一张适合浏览器打印的 HTML 小票页面，而不是聊天里的 monospace 版本。
-- `--write /tmp/token-receipt.txt`
-  把小票静默写进文件，不往 Bash stdout 里刷屏。这是 Claude Code 聊天里更干净的调用方式。
-- `--write-html /tmp/token-receipt.html`
-  保持文本小票还是主输出，但额外落一份可打印 HTML，方便在支持本地文件链接的宿主里一起回给用户。
-- `--stream`
-  让它像一台知道你花多了的小票机一样吐单。
 
 ---
 
