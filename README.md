@@ -83,6 +83,12 @@ PRICE DATE                            2026-04-25
 
 There are three ways to use `token-receipt`.
 
+The short version:
+
+- say one sentence in chat and let it print the bill in place
+- install the Claude Code auto-trigger and let `SessionEnd` fire it for you
+- skip the skill path and run the CLI directly
+
 ### The footer is the feature
 
 The footer is not decoration.
