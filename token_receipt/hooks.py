@@ -7,12 +7,14 @@ import shlex
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .cli import format_chat_reply
 from .data import (
     estimate_cost,
     find_claude_usage_for_session,
     load_snapshot_from_claude_usage,
     newest_claude_usage_file,
 )
+from .html_render import render_receipt_html
 from .models import DEFAULT_PRICING
 from .render import render_receipt
 
@@ -21,6 +23,7 @@ DEFAULT_SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
 DEFAULT_HOOK_ROOT = Path.home() / ".codex" / "skills" / "token-receipt"
 HOOK_SCRIPT_RELATIVE = Path("scripts") / "claude_session_end_hook.py"
 HOOK_MARKER = str(HOOK_SCRIPT_RELATIVE)
+DEFAULT_HTML_EXPORT = Path("/tmp/token-receipt.html")
 
 
 def build_claude_hook_command(hook_root: Optional[Path] = None, python_bin: str = "python3") -> str:
@@ -162,8 +165,19 @@ def build_session_end_system_message(
         footer_tone="auto",
         conversation_hint="",
     )
+    html_receipt = render_receipt_html(
+        snapshot=snapshot,
+        estimate=estimate,
+        width=width,
+        agent_tool="claude-code",
+        footer="auto",
+        footer_tone="auto",
+        conversation_hint="",
+        language="en",
+    )
+    DEFAULT_HTML_EXPORT.write_text(html_receipt + "\n", encoding="utf-8")
     return {
         "continue": True,
         "suppressOutput": True,
-        "systemMessage": f"```text\n{receipt_text}\n```",
+        "systemMessage": format_chat_reply(receipt_text, DEFAULT_HTML_EXPORT),
     }

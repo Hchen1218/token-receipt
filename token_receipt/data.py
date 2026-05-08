@@ -41,6 +41,29 @@ def newest_session_file() -> Optional[Path]:
     return max(files, key=lambda path: path.stat().st_mtime)
 
 
+def find_codex_session_for_thread(thread_id: str) -> Optional[Path]:
+    if not thread_id:
+        return None
+    matches: list[Path] = []
+    for root in (Path.home() / ".codex" / "sessions", Path.home() / ".codex" / "archived_sessions"):
+        if not root.exists():
+            continue
+        matches.extend(root.rglob(f"*{thread_id}.jsonl"))
+    if matches:
+        return max(matches, key=lambda path: path.stat().st_mtime)
+    for path in iter_session_files():
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                first = handle.readline()
+            item = json.loads(first)
+        except (OSError, json.JSONDecodeError):
+            continue
+        payload = item.get("payload") or {}
+        if item.get("type") == "session_meta" and str(payload.get("id") or "") == thread_id:
+            return path
+    return None
+
+
 def iter_claude_usage_files() -> Iterable[Path]:
     home = Path.home()
     usage_dir = home / ".claude" / "usage-data" / "session-meta"
@@ -879,6 +902,14 @@ def runtime_claude_session_id(env: Optional[Mapping[str, str]] = None) -> Option
     return None
 
 
+def runtime_codex_thread_id(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
+    runtime = env or os.environ
+    value = runtime.get("CODEX_THREAD_ID")
+    if value:
+        return value.strip()
+    return None
+
+
 def requested_agent_tool(args: argparse.Namespace, env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     explicit = getattr(args, "agent_tool", None)
     if explicit and explicit != "auto":
@@ -929,7 +960,12 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         )
 
     if agent_tool == "codex":
-        session_path = newest_session_file()
+        session_path = None
+        thread_id = runtime_codex_thread_id()
+        if thread_id:
+            session_path = find_codex_session_for_thread(thread_id)
+        if session_path is None:
+            session_path = newest_session_file()
         if session_path:
             return load_snapshot_from_session(session_path, args.scope, args.model, args.provider)
         raise SystemExit(

@@ -240,6 +240,17 @@ python3 scripts/token_receipt.py --agent-tool claude-code --write /tmp/token-rec
 
 这样聊天里保留 monospace 小票，同时还能顺手附上一份可点击的打印版 HTML。
 
+现在更推荐直接走统一的聊天回复模式：
+
+```bash
+python3 scripts/token_receipt.py --agent-tool codex --chat-reply
+python3 scripts/token_receipt.py --agent-tool claude-code --chat-reply
+python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
+python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
+```
+
+这会把完整 receipt 代码块作为主回复，同时自动落一份 `/tmp/token-receipt.html`，再把 `[Printable HTML](/tmp/token-receipt.html)` 一起带回来。
+
 这一版的 HTML 主要盯住了三件最容易被看出来的事：
 
 - 屏幕上有一层淡灰背景板，小票本体保持白色，边界更清楚

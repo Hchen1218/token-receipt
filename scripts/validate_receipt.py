@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from token_receipt.data import newest_claude_usage_file, requested_agent_tool, runtime_agent_tool, runtime_claude_session_id, runtime_opencode_session_id  # noqa: E402
+from token_receipt.data import find_codex_session_for_thread, newest_claude_usage_file, requested_agent_tool, runtime_agent_tool, runtime_claude_session_id, runtime_codex_thread_id, runtime_opencode_session_id  # noqa: E402
 from token_receipt.models import printable_receipt_char, visual_display_width  # noqa: E402
 from token_receipt.render import zh_tip_footer_candidates  # noqa: E402
 
@@ -283,6 +283,55 @@ def make_claude_mtime_tiebreak_fixture() -> tuple[Path, Path]:
     return home, newer
 
 
+def make_codex_thread_fixture() -> tuple[Path, str, Path]:
+    home = Path(tempfile.mkdtemp(prefix="token-receipt-codex-home-"))
+    session_root = home / ".codex" / "sessions" / "2026" / "05" / "08"
+    session_root.mkdir(parents=True, exist_ok=True)
+
+    current_thread_id = "codex-current-thread"
+    other_thread_id = "codex-other-thread"
+    current_path = session_root / f"rollout-2026-05-08T09-00-00-{current_thread_id}.jsonl"
+    other_path = session_root / f"rollout-2026-05-08T09-05-00-{other_thread_id}.jsonl"
+
+    def write_session(path: Path, session_id: str, input_tokens: int) -> None:
+        items = [
+            {
+                "timestamp": "2026-05-08T01:00:00Z",
+                "type": "session_meta",
+                "payload": {
+                    "id": session_id,
+                    "timestamp": "2026-05-08T00:58:00Z",
+                    "model_provider": "openai",
+                },
+            },
+            {
+                "timestamp": "2026-05-08T01:00:01Z",
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "model_context_window": 258400,
+                        "last_token_usage": {
+                            "input_tokens": input_tokens,
+                            "output_tokens": 10,
+                            "total_tokens": input_tokens + 10,
+                        },
+                    },
+                },
+            },
+        ]
+        with path.open("w", encoding="utf-8") as handle:
+            for item in items:
+                handle.write(json.dumps(item, ensure_ascii=True) + "\n")
+
+    write_session(current_path, current_thread_id, 111)
+    write_session(other_path, other_thread_id, 999)
+
+    os.utime(current_path, (1_777_262_400, 1_777_262_400))
+    os.utime(other_path, (1_777_262_700, 1_777_262_700))
+    return home, current_thread_id, current_path
+
+
 def make_kimi_kimi_home_fixture() -> tuple[Path, Path]:
     """Minimal ~/.kimi tree: sessions/<hash>/<id>/context.jsonl + config.toml."""
     home = Path(tempfile.mkdtemp(prefix="token-receipt-kimi-home-"))
@@ -355,10 +404,12 @@ def main() -> int:
     claude_usage, claude_transcript = make_claude_usage_fixture()
     claude_home, claude_session_id = make_claude_home_fixture()
     claude_mtime_home, expected_newest_usage = make_claude_mtime_tiebreak_fixture()
+    codex_home, codex_thread_id, expected_codex_path = make_codex_thread_fixture()
 
     assert runtime_agent_tool({"CODEX_THREAD_ID": "thread"}) == "codex"
     assert runtime_agent_tool({"CLAUDECODE": "1"}) == "claude-code"
     assert runtime_agent_tool({"KIMI_SESSION_ID": "sess-1"}) == "kimi-code"
+    assert runtime_codex_thread_id({"CODEX_THREAD_ID": " thread-x "}) == "thread-x"
     assert runtime_opencode_session_id({"OPENCODE_SESSION_ID": " ses_x "}) == "ses_x"
     assert runtime_agent_tool({"OPENCODE_SESSION_ID": "ses-z"}) == "opencode"
     assert requested_agent_tool(SimpleNamespace(agent_tool=None, brand=None), {"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"}) == "codex"
@@ -674,6 +725,28 @@ def main() -> int:
     assert all(option["footer"] != en_tip_payload["defaultFooter"] for option in en_tip_payload["options"])
     assert all(not option["footer"].startswith("CHATGPT ") for option in en_tip_payload["options"]), "english tip footers should not repeat the product name as subject"
 
+    chat_html_target = Path("/tmp/token-receipt.html")
+    if chat_html_target.exists():
+        chat_html_target.unlink()
+    chat_reply = run_case(
+        "--provider", "anthropic",
+        "--agent-tool", "claude-code",
+        "--model", "claude-sonnet-4.5",
+        "--input-tokens", "12487",
+        "--output-tokens", "3215",
+        "--chat-reply",
+    )
+    assert chat_reply.startswith("```text\n")
+    assert "[Printable HTML](/tmp/token-receipt.html)" in chat_reply
+    assert "CLAUDE CODE" in chat_reply
+    assert chat_html_target.exists(), "chat reply mode should always export default printable html"
+    chat_saved_html = chat_html_target.read_text(encoding="utf-8")
+    assert_html_receipt(
+        chat_saved_html,
+        ["CLAUDE CODE", "THANK YOU FOR CODING WITH Claude", "USD ESTIMATE", "Add tip"],
+        language="en",
+    )
+
     claude_env = os.environ.copy()
     claude_env["HOME"] = str(claude_home)
     claude_env["CLAUDECODE"] = "1"
@@ -697,6 +770,29 @@ def main() -> int:
         else:
             os.environ["HOME"] = original_home
 
+    codex_env = os.environ.copy()
+    codex_env["HOME"] = str(codex_home)
+    codex_env["CODEX_THREAD_ID"] = codex_thread_id
+    original_home = os.environ.get("HOME")
+    original_thread = os.environ.get("CODEX_THREAD_ID")
+    try:
+        os.environ["HOME"] = str(codex_home)
+        os.environ["CODEX_THREAD_ID"] = codex_thread_id
+        assert find_codex_session_for_thread(codex_thread_id) == expected_codex_path
+        codex_fields = run_case("--show-fields", "--agent-tool", "codex", env=codex_env)
+        codex_report = json.loads(codex_fields)
+        assert codex_report["source"] == str(expected_codex_path)
+        assert "input_tokens" in codex_report["token_usage_fields_available"]
+    finally:
+        if original_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = original_home
+        if original_thread is None:
+            os.environ.pop("CODEX_THREAD_ID", None)
+        else:
+            os.environ["CODEX_THREAD_ID"] = original_thread
+
     hook_env = os.environ.copy()
     hook_env["TOKEN_RECEIPT_CLAUDE_USAGE_PATH"] = str(claude_usage)
     hook_payload = {
@@ -716,6 +812,7 @@ def main() -> int:
     assert "CLAUDE CODE" in hook_json["systemMessage"]
     assert "THANK YOU FOR CODING WITH Claude" in hook_json["systemMessage"]
     assert "claude-sonnet-4.5" in hook_json["systemMessage"]
+    assert "[Printable HTML](/tmp/token-receipt.html)" in hook_json["systemMessage"]
 
     settings_dir = Path(tempfile.mkdtemp(prefix="token-receipt-settings-"))
     settings_path = settings_dir / "settings.json"

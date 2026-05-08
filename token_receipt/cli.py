@@ -13,6 +13,15 @@ from .html_render import render_receipt_html
 from .models import ALLOWED_WIDTHS, DEFAULT_FOOTER, DEFAULT_PRICING, canonical_language
 from .render import auto_brand, print_receipt, render_receipt
 
+DEFAULT_CHAT_HTML_PATH = Path("/tmp/token-receipt.html")
+
+
+def format_chat_reply(receipt_text: str, html_path: Optional[Path] = None) -> str:
+    reply = f"```text\n{receipt_text}\n```"
+    if html_path:
+        reply += f"\n\n[Printable HTML]({html_path.as_posix()})"
+    return reply
+
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Render token usage as an ASCII thermal receipt.")
@@ -46,6 +55,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", choices=("text", "html"), default="text", help="Receipt output format. Use html for a printable browser page.")
     parser.add_argument("--write", type=Path, help="Write the rendered receipt to a file and suppress stdout. Useful when a host tool would otherwise echo the receipt multiple times.")
     parser.add_argument("--write-html", type=Path, help="Also write a printable HTML receipt to a file while keeping the main output unchanged.")
+    parser.add_argument("--chat-reply", action="store_true", help="Print a chat-ready reply: fenced receipt text plus a Printable HTML link. When no --write-html path is given, /tmp/token-receipt.html is used automatically.")
     parser.add_argument("--stream", action="store_true", default=None, help="Print receipt one line at a time, like a receipt printer.")
     parser.add_argument("--no-stream", dest="stream", action="store_false", help="Print receipt all at once even in an interactive terminal.")
     parser.add_argument("--stream-delay", type=float, default=0.03, help="Delay in seconds between lines when --stream is used.")
@@ -75,19 +85,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     agent_tool = auto_brand(snapshot.provider, snapshot.source, args.agent_tool or args.brand or "auto")
     conversation_hint = args.conversation_summary or args.conversation_hint
     language = canonical_language(args.language)
+    html_target = args.write_html
+    if args.chat_reply and html_target is None and args.output != "html":
+        html_target = DEFAULT_CHAT_HTML_PATH
     html_receipt = None
-    if args.output == "html" or args.write_html:
+    if args.output == "html" or html_target:
         html_receipt = render_receipt_html(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
     if args.output == "html":
         receipt_text = html_receipt or render_receipt_html(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
     else:
         receipt_text = render_receipt(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
-    if args.write_html:
-        args.write_html.parent.mkdir(parents=True, exist_ok=True)
-        args.write_html.write_text((html_receipt or "") + "\n", encoding="utf-8")
+    if html_target:
+        html_target.parent.mkdir(parents=True, exist_ok=True)
+        html_target.write_text((html_receipt or "") + "\n", encoding="utf-8")
     if args.write:
         args.write.parent.mkdir(parents=True, exist_ok=True)
         args.write.write_text(receipt_text + "\n", encoding="utf-8")
+    if args.chat_reply:
+        print(format_chat_reply(receipt_text, html_target))
+        return 0
+    if args.write:
         return 0
     if args.output == "html":
         print(receipt_text)

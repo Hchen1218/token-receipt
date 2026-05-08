@@ -239,6 +239,17 @@ python3 scripts/token_receipt.py --agent-tool claude-code --write /tmp/token-rec
 
 That keeps the monospace receipt in chat while also giving you a clickable printable HTML file.
 
+The new default path is the unified chat-reply mode:
+
+```bash
+python3 scripts/token_receipt.py --agent-tool codex --chat-reply
+python3 scripts/token_receipt.py --agent-tool claude-code --chat-reply
+python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
+python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
+```
+
+That prints the full receipt as the main chat artifact, automatically saves `/tmp/token-receipt.html`, and returns the local `[Printable HTML](/tmp/token-receipt.html)` link in the same reply.
+
 The current HTML path is tuned for the same three things people actually notice:
 
 - a gray preview stage with a white receipt body, so the receipt edges stay visible on screen

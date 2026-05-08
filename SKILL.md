@@ -23,7 +23,7 @@ Claude Code 如果装了自动触发，`SessionEnd` 结束时也会自动出票�
 
 ## 当前产品方向
 
-- 主输出面是聊天对话框里的 `receipt-only` 小票，不把 HTML 当第一优先级。
+- 主输出面仍然是聊天对话框里的文本小票，HTML 是跟随它一起返回的打印出口，不反过来抢主位。
 - 不做二维码；底部继续保留当前的条形码 / receipt id 结构。
 - 触发策略按宿主能力分层：
   - `Claude Code`：使用 `SessionEnd auto trigger + 触发词`。
@@ -41,14 +41,23 @@ Claude Code 如果装了自动触发，`SessionEnd` 结束时也会自动出票�
 python3 scripts/token_receipt.py
 ```
 
-如果是在 Claude Code 聊天里手动触发，不要把 receipt 直接打到 Bash stdout。
-优先用单次静默调用：
+如果是在任何支持的聊天宿主里手动触发，不要让 receipt 只停在 Bash stdout。
+优先统一走聊天回复模式：
 
 ```bash
-python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_SESSION_ID}.json --write /tmp/token-receipt.txt --write-html /tmp/token-receipt.html
+python3 scripts/token_receipt.py --agent-tool codex --chat-reply
+python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_SESSION_ID}.json --chat-reply
+python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
+python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
 ```
 
-然后把 `/tmp/token-receipt.txt` 的内容作为最终回复贴回聊天框。不要先跑一遍默认命令，再 `grep` 会话文件后重跑第二遍；那样只会在工具输出里刷出多张 logo。
+这会同时做三件事：
+
+- 把完整 receipt 作为聊天回复主体打印出来
+- 自动落一份 `/tmp/token-receipt.html`
+- 在回复底部附上 `[Printable HTML](/tmp/token-receipt.html)`
+
+不要先跑一遍默认命令，再 `grep` 会话文件后重跑第二遍；那样只会在工具输出里刷出多张 logo。
 
 常用参数：
 
@@ -71,22 +80,19 @@ python3 scripts/uninstall_claude_auto_trigger.py
 
 - 默认目标是：让用户在对话框里直接看到完整 receipt 本体，而不是只看到 `RECEIPT # / TOTAL / USD ESTIMATE` 这种摘要。
 - 只要 skill 是在聊天里被调用，优先返回完整 receipt 代码块；不要只汇报“已打印到终端”。
-- 如果宿主支持本地文件链接或附件，默认同时写出一份 HTML：
-  - 文本小票：`--write /tmp/token-receipt.txt`
-  - 可打印 HTML：`--write-html /tmp/token-receipt.html`
-  - 最终回复里把 receipt 代码块贴出，再附一个本地文件链接 `[Printable HTML](/tmp/token-receipt.html)`。
+- 所有适配软件默认都走统一的聊天回复模式：`--chat-reply`。
+- `--chat-reply` 会自动写出 `/tmp/token-receipt.html`，然后把 receipt 代码块和本地文件链接一起回出来。
 - 终端 PTY 打印只是附加演示路径，不是默认主路径。只有用户明确说“打印到终端”“去 terminal 跑”时，才把终端当主输出面。
 - 如果宿主支持 token streaming，回复内容尽量只放 receipt 本体，少写解释，让它在对话框里自然流出来。
 - 如果宿主不支持把工具 stdout 增量渲染进聊天气泡，skill 也不能强行让 UI 逐行冒字；这时仍然应该把完整 receipt 贴回对话框，而不是退回成摘要。
 
 ## 聊天回复契约
 
-- 默认回复必须是 `receipt-only`：只返回一段 fenced code block，代码块内容就是完整小票。
-- 例外：如果宿主支持本地文件链接，并且同时导出了 HTML，则允许在代码块下面额外附一行本地链接。
+- 默认回复必须是聊天友好的完整产物：receipt fenced code block + `[Printable HTML](/tmp/token-receipt.html)`。
 - 代码块前后不要再加解释、总结、状态汇报、字段摘录、项目符号。
 - 不要只返回 `RECEIPT #`、`TOTAL`、`USD ESTIMATE` 这种摘要。
-- 在 Claude Code 里，如果需要用 Bash 跑脚本，优先使用 `--write /tmp/token-receipt.txt` 这类静默写文件方式，然后再把文件内容作为唯一聊天回复贴出；不要让 Bash stdout 直接刷出 receipt 本体。
-- 只有在生成失败、字段缺失到无法出票、或用户明确要求解释时，才允许跳出 `receipt-only`；即便如此，也先给最短说明，再给 receipt 或错误原因。
+- 在 Claude Code 里，如果需要用 Bash 跑脚本，优先直接用 `--chat-reply`；不要再手动拼 `--write /tmp/token-receipt.txt` + `--write-html ...` 的双步流。
+- 只有在生成失败、字段缺失到无法出票、或用户明确要求解释时，才允许跳出这套默认回复格式；即便如此，也先给最短说明，再给 receipt 或错误原因。
 - 推荐形态如下：
 
 ````text

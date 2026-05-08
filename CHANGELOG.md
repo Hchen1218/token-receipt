@@ -4,6 +4,7 @@
 
 ### Added
 
+- Unified `--chat-reply` mode for supported software, which returns the receipt code block and a local Printable HTML link in one shot
 - HTML receipt language toggle (`EN / 中文`) outside the receipt body
 - External HTML tip panel with `15% / 18% / 20% / 25%` presets
 - Conditional `SUBTOTAL / TIP / GRAND TOTAL` rows that only appear after tip selection
@@ -22,7 +23,8 @@
 ### Notes
 
 - Tip controls stay outside the printable receipt surface until the user explicitly opts in
-- Default chat receipts remain unchanged; tips are currently an HTML-only interaction layer
+- Claude Code `SessionEnd` hook now follows the same text-plus-HTML reply path
+- Default chat receipts still stay text-first; tips are currently an HTML-only interaction layer
 
 ## 2026-04-29
 
