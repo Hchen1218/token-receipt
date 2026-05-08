@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-05-08
+
+### Added
+- `--cache-ttl {auto,5m,1h}` — controls which Anthropic cache-write rate is billed
+- `--hide-fields supplier,model,context,price-mapping,price-date,rate-note` — drops rows from the receipt
+- `--scope today` and `--scope session-all` for Claude Code aggregation across `~/.claude/projects/**/*.jsonl`
+- `PARTIAL` pricing status — rendered as `USD ESTIMATE*` + `PRICE: PARTIAL` (no PRICE DATE) when the rate table is incomplete
+- `cache_write_1h_per_million` in every anthropic entry of `references/pricing.json`
+
+### Fixed
+- `TOTAL` now includes cache read and cache write tokens (previously undercounted by 50×+ on cache-heavy sessions)
+- `USD ESTIMATE` now bills cached input and cache write at their own rates instead of dropping them (previously undercounted by 5–10×)
+- `PROVIDER` and `MODEL` auto-detect AWS Bedrock from `CLAUDE_CODE_USE_BEDROCK=1` or `<region>.anthropic.*[1m]` model strings
+- `CONTEXT USED` row is suppressed for `--scope session`, `today`, and `session-all` (was rendering a meaningless value)
+- `--write` is fully silent; `--write --write-html` prints exactly two `wrote to:` lines
+- `SKILL.md` HTML link example now uses `file:///tmp/...` so chat clients can open it
+
+### Changed
+- `--scope session` for Claude Code now reads the jsonl transcripts and dedupes sidechain/subagent branches, not just the current session-meta file
+- Pricing, Bedrock normalization, and Claude aggregation live in new single-purpose modules under `token_receipt/`
+
 ## 2026-05-05
 
 ### Added

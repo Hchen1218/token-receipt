@@ -800,9 +800,11 @@ def load_snapshot_from_session(path: Path, scope: str, model_override: Optional[
 
 
 def load_manual_snapshot(args: argparse.Namespace) -> UsageSnapshot:
+    # Only honor --total-tokens when explicitly passed; otherwise leave it 0 so
+    # that cli.main falls back to compute_total (which sums all four buckets +
+    # reasoning). Previously this pre-populated total = input + output and
+    # caused cache read/write to be excluded from TOTAL on cache-heavy runs.
     total = args.total_tokens
-    if total is None:
-        total = as_int(args.input_tokens) + as_int(args.output_tokens)
     available_fields = []
     if args.input_tokens is not None:
         available_fields.append("input_tokens")
