@@ -544,7 +544,7 @@ def main() -> int:
         "--output-tokens", "1000000",
         "--width", "48",
     )
-    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.364000"])
+    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.434000"])
 
     glm = run_case(
         "--provider", "bigmodel",
