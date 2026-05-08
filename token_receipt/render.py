@@ -1425,6 +1425,7 @@ def build_receipt_view(
     footer_tone: str,
     conversation_hint: str,
     language: str = DEFAULT_LANGUAGE,
+    hidden: frozenset = frozenset(),
 ) -> ReceiptView:
     language = canonical_language(language)
     labels = labels_for(language)
@@ -1454,9 +1455,9 @@ def build_receipt_view(
         ReceiptRow(labels["price"], labels["unmapped"] if estimate.status == "UNMAPPED" else estimate.model),
     ]
     if estimate.status != "UNMAPPED":
-        if estimate.source_checked_at:
+        if estimate.source_checked_at and "price-date" not in hidden:
             pricing_rows.append(ReceiptRow(labels["price_date"], estimate.source_checked_at))
-        if estimate.rate_note:
+        if estimate.rate_note and "rate-note" not in hidden:
             pricing_rows.append(ReceiptRow(labels["rate_note"], estimate.rate_note))
 
     logo_lines, logo_label, _ = logo_block(agent_tool, language)
@@ -1488,8 +1489,9 @@ def render_receipt(
     footer_tone: str,
     conversation_hint: str,
     language: str = DEFAULT_LANGUAGE,
+    hidden: frozenset = frozenset(),
 ) -> str:
-    view = build_receipt_view(snapshot, estimate, width, agent_tool, footer, footer_tone, conversation_hint, language)
+    view = build_receipt_view(snapshot, estimate, width, agent_tool, footer, footer_tone, conversation_hint, language, hidden=hidden)
     receipt = Receipt(width, view.language)
 
     add_logo(receipt, agent_tool, view.language)

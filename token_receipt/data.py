@@ -957,6 +957,8 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
     agent_tool = requested_agent_tool(args)
 
     if agent_tool == "claude-code":
+        if args.scope != "latest-turn":
+            return _finalize(_load_claude_aggregate(args), args)
         claude_path = None
         session_id = runtime_claude_session_id()
         if session_id:
@@ -1070,6 +1072,8 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
                 load_snapshot_from_opencode_sqlite(db_p, sid_o, args.scope, args.model, args.provider),
                 args,
             )
+        if args.scope != "latest-turn":
+            return _finalize(_load_claude_aggregate(args), args)
         return _finalize(
             load_snapshot_from_claude_usage(path, args.model, args.provider),
             args,
@@ -1102,6 +1106,44 @@ def _finalize(snapshot: UsageSnapshot, args: argparse.Namespace) -> UsageSnapsho
         snapshot.provider, _ = resolve_provider_and_model(snapshot.provider, snapshot.model)
     elif not args.model:
         _, snapshot.model = resolve_provider_and_model(snapshot.provider, snapshot.model)
+    return snapshot
+
+
+def _load_claude_aggregate(args: argparse.Namespace) -> UsageSnapshot:
+    from .claude_aggregator import aggregate_claude_projects
+
+    now = dt.datetime.now(tz=dt.timezone.utc)
+    epoch = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
+
+    if args.scope == "today":
+        local_midnight = dt.datetime.now().astimezone().replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        since = local_midnight.astimezone(dt.timezone.utc)
+        until = now
+        session_id = None
+    elif args.scope in ("session", "session-all"):
+        since = epoch
+        until = now
+        session_id = runtime_claude_session_id()
+        if not session_id:
+            raise SystemExit(
+                f"--scope {args.scope} needs the active Claude Code sessionId. "
+                "Run token-receipt from inside Claude Code (CLAUDE_SESSION_ID is set), "
+                "or pass --scope today for a whole-day aggregate."
+            )
+    else:
+        since = epoch
+        until = now
+        session_id = runtime_claude_session_id()
+
+    snapshot = aggregate_claude_projects(
+        since, until,
+        session_id=session_id,
+        model_override=args.model,
+        provider_override=args.provider,
+    )
+    snapshot.scope = args.scope
     return snapshot
 
 
