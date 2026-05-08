@@ -54,6 +54,14 @@ class UsageSnapshot:
     available_fields: Tuple[str, ...] = ()
     # 为 True 时不做单价估算（避免把上下文累计误当成 prompt/completion）
     skip_price_estimate: bool = False
+    # Per-TTL split of cache-write tokens, populated by claude_aggregator when the
+    # source carries message.usage.cache_creation.ephemeral_{5m,1h}_input_tokens.
+    # Loaders that cannot distinguish leave these at 0; cache_write_tokens is the aggregate.
+    cache_write_5m_tokens: int = 0
+    cache_write_1h_tokens: int = 0
+    # Diagnostics for the new aggregator path; None for single-file loaders.
+    aggregation_source: Optional[str] = None
+    deduped_message_ids: int = 0
 
 
 @dataclass
@@ -65,6 +73,8 @@ class PriceEstimate:
     source_url: str = ""
     source_checked_at: str = ""
     rate_note: str = ""
+    # Non-empty only when status == "PARTIAL" — lists the rates we substituted for.
+    partial_reasons: Tuple[str, ...] = ()
 
 
 def normalize(value: str) -> str:
