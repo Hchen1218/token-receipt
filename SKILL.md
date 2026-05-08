@@ -81,7 +81,7 @@ python3 scripts/uninstall_claude_auto_trigger.py
 - 默认目标是：让用户在对话框里直接看到完整 receipt 本体，而不是只看到 `RECEIPT # / TOTAL / USD ESTIMATE` 这种摘要。
 - 只要 skill 是在聊天里被调用，优先返回完整 receipt 代码块；不要只汇报“已打印到终端”。
 - 所有适配软件默认都走统一的聊天回复模式：`--chat-reply`。
-- `--chat-reply` 会自动写出 `/tmp/token-receipt.html`，然后把 receipt 代码块和本地文件链接一起回出来。
+- `--chat-reply` 会自动写出 `/tmp/token-receipt.html`，然后把 receipt 代码块和本地文件链接一起回出来。链接要带 `file://` 前缀（即 `[Printable HTML](file:///tmp/token-receipt.html)`），否则在部分聊天客户端里点击会提示"无法打开"。
 - 终端 PTY 打印只是附加演示路径，不是默认主路径。只有用户明确说“打印到终端”“去 terminal 跑”时，才把终端当主输出面。
 - 如果宿主支持 token streaming，回复内容尽量只放 receipt 本体，少写解释，让它在对话框里自然流出来。
 - 如果宿主不支持把工具 stdout 增量渲染进聊天气泡，skill 也不能强行让 UI 逐行冒字；这时仍然应该把完整 receipt 贴回对话框，而不是退回成摘要。
@@ -100,7 +100,7 @@ python3 scripts/uninstall_claude_auto_trigger.py
 <full receipt here>
 ```
 
-[Printable HTML](/tmp/token-receipt.html)
+[Printable HTML](file:///tmp/token-receipt.html)
 ````
 
 ## 数据口径
