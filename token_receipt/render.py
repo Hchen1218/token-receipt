@@ -7,7 +7,7 @@ import hashlib
 import math
 import re
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .models import (
     ALLOWED_WIDTHS,
@@ -322,7 +322,15 @@ def product_name(snapshot: UsageSnapshot) -> str:
     return "AI"
 
 
-def context_used(snapshot: UsageSnapshot) -> str:
+def context_used(snapshot: UsageSnapshot) -> Optional[str]:
+    """Return the CONTEXT USED row value, or None when the row should be omitted.
+
+    CONTEXT USED only makes sense for the latest turn. Session, today, and
+    session-all aggregate multiple turns; showing one total-vs-window there
+    misleads the reader.
+    """
+    if snapshot.scope != "latest-turn":
+        return None
     if snapshot.context_tokens is not None:
         used_src = snapshot.context_tokens
     else:
@@ -1433,11 +1441,18 @@ def build_receipt_view(
     rid = receipt_id(snapshot, snapshot.provider)
     footer_text = auto_footer(snapshot, estimate, footer_tone, width, language, conversation_hint) if footer == "auto" else footer
 
-    summary_rows = (
-        ReceiptRow(labels["provider"], provider),
-        ReceiptRow(labels["model"], snapshot.model),
-        ReceiptRow(labels["context"], context_used(snapshot)),
-    )
+    # --- Summary rows, honoring --hide-fields and auto-dropping CONTEXT USED off latest-turn ---
+    summary: list[ReceiptRow] = []
+    if "supplier" not in hidden:
+        summary.append(ReceiptRow(labels["provider"], provider))
+    if "model" not in hidden:
+        summary.append(ReceiptRow(labels["model"], snapshot.model))
+    ctx_value = context_used(snapshot)
+    if ctx_value is not None and "context" not in hidden:
+        summary.append(ReceiptRow(labels["context"], ctx_value))
+    summary_rows = tuple(summary)
+
+    # --- Token rows (unchanged) ---
     token_rows: list[ReceiptRow] = []
     if source_has(snapshot, "input_tokens"):
         token_rows.append(ReceiptRow(labels["input"], fmt_int(snapshot.input_tokens)))
@@ -1450,15 +1465,34 @@ def build_receipt_view(
     if source_has(snapshot, "cache_write_tokens"):
         token_rows.append(ReceiptRow(labels["cache_write"], fmt_int(snapshot.cache_write_tokens)))
 
-    pricing_rows = [
-        ReceiptRow(labels["estimate"].format(currency=estimate.currency), money(estimate.amount, estimate.currency)),
-        ReceiptRow(labels["price"], labels["unmapped"] if estimate.status == "UNMAPPED" else estimate.model),
-    ]
-    if estimate.status != "UNMAPPED":
+    # --- Pricing rows, with PARTIAL rendered as estimate* + PRICE: PARTIAL and no PRICE DATE ---
+    if estimate.status == "UNMAPPED":
+        pricing_rows_list = [
+            ReceiptRow(labels["estimate"].format(currency=estimate.currency),
+                       money(estimate.amount, estimate.currency)),
+            ReceiptRow(labels["price"], labels["unmapped"]),
+        ]
+    elif estimate.status == "PARTIAL":
+        pricing_rows_list = [
+            ReceiptRow(labels["estimate"].format(currency=estimate.currency) + "*",
+                       money(estimate.amount, estimate.currency)),
+            ReceiptRow(labels["price"], "PARTIAL"),
+        ]
+        # Intentionally no PRICE DATE — PARTIAL means the rate table was incomplete.
+    else:  # ESTIMATE
+        pricing_rows_list = [
+            ReceiptRow(labels["estimate"].format(currency=estimate.currency),
+                       money(estimate.amount, estimate.currency)),
+            ReceiptRow(labels["price"] if "price-mapping" not in hidden else "",
+                       estimate.model),
+        ]
         if estimate.source_checked_at and "price-date" not in hidden:
-            pricing_rows.append(ReceiptRow(labels["price_date"], estimate.source_checked_at))
+            pricing_rows_list.append(ReceiptRow(labels["price_date"], estimate.source_checked_at))
         if estimate.rate_note and "rate-note" not in hidden:
-            pricing_rows.append(ReceiptRow(labels["rate_note"], estimate.rate_note))
+            pricing_rows_list.append(ReceiptRow(labels["rate_note"], estimate.rate_note))
+        if "price-mapping" in hidden:
+            pricing_rows_list = [row for row in pricing_rows_list if row.label]
+    pricing_rows = pricing_rows_list
 
     logo_lines, logo_label, _ = logo_block(agent_tool, language)
     return ReceiptView(

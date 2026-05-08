@@ -484,7 +484,10 @@ def main() -> int:
         "48",
         env={**os.environ, "HOME": str(kimi_home), "USERPROFILE": str(kimi_home), "KIMI_SESSION_ID": "kimi-session-xyz"},
     )
-    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "CONTEXT USED", "8,150"])
+    # CONTEXT USED is latest-turn-only as of Part 09; Kimi's context.jsonl produces a session-scope
+    # snapshot, so the row is now intentionally absent. The 8,150 tally still lands on TOTAL.
+    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "8,150"])
+    assert "CONTEXT USED" not in kimi_by_session, "session-scope receipts must not render CONTEXT USED"
     assert "Input Tokens" not in kimi_by_session
     assert "UNMAPPED" in kimi_by_session
     assert_logo_label_aligned(kimi_by_session, "KIMI CODE")
