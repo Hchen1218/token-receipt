@@ -1,14 +1,16 @@
 """Pricing lookup and cost estimation.
 
-Extracted from token_receipt/data.py unchanged so the move is behavior-preserving.
-Part 05 rewrites the math; this file currently contains the legacy logic.
+Responsibility: given a UsageSnapshot and a pricing.json path, return the
+total cost as a PriceEstimate. Owns cache-write TTL resolution and total-tokens
+math. No I/O besides reading pricing.json.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 from .models import PriceEstimate, UsageSnapshot, normalize
 
@@ -37,8 +39,54 @@ def find_price(pricing: Dict[str, Any], provider: str, model: str) -> Optional[D
     return None
 
 
-def estimate_cost(snapshot: UsageSnapshot, pricing_path: Path) -> PriceEstimate:
-    # Kimi context.jsonl 只有上下文累计 token_count，不能直接套 API 分项单价
+def compute_total(snapshot: UsageSnapshot) -> int:
+    """Sum of every billable bucket — used when the source did not supply its own total."""
+    return (
+        snapshot.input_tokens
+        + snapshot.output_tokens
+        + snapshot.cached_input_tokens
+        + snapshot.cache_write_tokens
+        + snapshot.reasoning_output_tokens
+    )
+
+
+def resolve_cache_write_split(
+    snapshot: UsageSnapshot,
+    cli_override: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> Tuple[int, int]:
+    """Return (cache_write_5m_tokens, cache_write_1h_tokens).
+
+    Resolution order:
+    1. Explicit CLI override (--cache-ttl 5m | 1h).
+    2. Per-message split carried by the snapshot (5m/1h fields both nonzero or either nonzero).
+    3. Claude Code on Bedrock 1h env flag.
+    4. Default to 5m.
+    """
+    env = env if env is not None else os.environ
+
+    if cli_override == "5m":
+        return (snapshot.cache_write_tokens, 0)
+    if cli_override == "1h":
+        return (0, snapshot.cache_write_tokens)
+
+    if snapshot.cache_write_5m_tokens or snapshot.cache_write_1h_tokens:
+        return (snapshot.cache_write_5m_tokens, snapshot.cache_write_1h_tokens)
+
+    flag = env.get("ENABLE_PROMPT_CACHING_1H_BEDROCK", "").strip()
+    if flag in ("1", "true", "TRUE"):
+        return (0, snapshot.cache_write_tokens)
+
+    return (snapshot.cache_write_tokens, 0)
+
+
+def estimate_cost(
+    snapshot: UsageSnapshot,
+    pricing_path: Path,
+    cache_ttl_override: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> PriceEstimate:
+    """Bill every bucket at its own rate. Returns PARTIAL when required rates are missing."""
     if snapshot.skip_price_estimate:
         return PriceEstimate(status="UNMAPPED", amount=None)
 
@@ -47,28 +95,42 @@ def estimate_cost(snapshot: UsageSnapshot, pricing_path: Path) -> PriceEstimate:
     if not entry:
         return PriceEstimate(status="UNMAPPED", amount=None)
 
-    cached = min(snapshot.cached_input_tokens, snapshot.input_tokens)
-    cache_write = min(snapshot.cache_write_tokens, max(snapshot.input_tokens - cached, 0))
-    uncached = max(snapshot.input_tokens - cached - cache_write, 0)
+    missing: list[str] = []
 
-    input_rate = float(entry.get("input_per_million", 0.0))
-    cached_rate = float(entry.get("cached_input_per_million", input_rate))
-    cache_write_rate = float(entry.get("cache_write_5m_per_million", input_rate))
-    output_rate = float(entry.get("output_per_million", 0.0))
+    input_rate = entry.get("input_per_million")
+    output_rate = entry.get("output_per_million")
+    cached_rate = entry.get("cached_input_per_million", input_rate)
+    write_5m = entry.get("cache_write_5m_per_million", input_rate)
+    write_1h = entry.get("cache_write_1h_per_million")
+
+    split_5m, split_1h = resolve_cache_write_split(snapshot, cache_ttl_override, env)
+
+    if split_1h > 0 and write_1h is None:
+        missing.append("cache_write_1h_per_million")
+        # Documented Anthropic 1h fallback: 2 * input rate.
+        write_1h = (input_rate or 0) * 2.0
+
+    if input_rate is None:
+        missing.append("input_per_million")
+    if output_rate is None:
+        missing.append("output_per_million")
 
     amount = (
-        uncached * input_rate
-        + cached * cached_rate
-        + cache_write * cache_write_rate
-        + (snapshot.output_tokens + snapshot.reasoning_output_tokens) * output_rate
+        snapshot.input_tokens * (input_rate or 0)
+        + snapshot.cached_input_tokens * (cached_rate or 0)
+        + split_5m * (write_5m or 0)
+        + split_1h * (write_1h or 0)
+        + (snapshot.output_tokens + snapshot.reasoning_output_tokens) * (output_rate or 0)
     ) / 1_000_000
 
+    status = "PARTIAL" if missing else "ESTIMATE"
     return PriceEstimate(
-        status="ESTIMATE",
+        status=status,
         amount=amount,
         model=str(entry.get("model", snapshot.model)),
         currency=str(entry.get("currency", pricing.get("currency", "USD"))).upper(),
         source_url=str(entry.get("source_url", "")),
         source_checked_at=str(entry.get("source_checked_at", "")),
         rate_note=str(entry.get("rate_note", "")),
+        partial_reasons=tuple(missing),
     )
