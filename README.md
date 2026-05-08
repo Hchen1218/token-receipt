@@ -77,12 +77,6 @@ PRICE DATE                            2026-04-25
            CC_20260427_151928_7CE382
 ```
 
----
-
-## How to trigger it
-
-There are three ways to use `token-receipt`.
-
 ### The footer is the feature
 
 The footer is not decoration.
@@ -108,6 +102,10 @@ If the user adds a tip in HTML, the footer is rewritten instead of extended.
 It stops acting like a dry bill and starts acting like a register that knows you tipped.
 
 If the receipt looks good but the footer has no sting, the job is not done.
+
+---
+
+## How to trigger it
 
 ### 1. Trigger it inside chat
 
@@ -143,30 +141,6 @@ python3 scripts/install_claude_auto_trigger.py
 ```
 
 After that, ending a Claude Code session will auto-fire the receipt without an extra chat message.
-
-### 3. Run the CLI directly
-
-If you are not invoking it through a skill system, run the script yourself:
-
-```bash
-python3 scripts/token_receipt.py --agent-tool codex
-python3 scripts/token_receipt.py --agent-tool claude-code
-python3 scripts/token_receipt.py --agent-tool kimi-code
-python3 scripts/token_receipt.py --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
-python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
-```
-
-
-Trigger matrix:
-
-| Software | Manual trigger in chat | Auto trigger |
-| --- | --- | --- |
-| Codex | Say `token receipt` or equivalent | Not shipped |
-| Claude Code | Say `token receipt` or equivalent | `SessionEnd` hook after install |
-| Trae | Say `token receipt` or equivalent | Not shipped |
-| Kimi Code | Say `token receipt` or equivalent; CLI `--agent-tool kimi-code` | Not shipped |
-| OpenCode | Say `token receipt` or equivalent; CLI `--agent-tool opencode` | Not shipped |
 
 ---
 
@@ -302,39 +276,6 @@ This wires `token-receipt` into Claude Code's `SessionEnd` hook.
 The conversation ends.
 The receipt arrives.
 The denial window closes.
-
----
-
-## Design philosophy
-
-This project is intentionally opinionated.
-
-- No markdown tables as the primary artifact
-- No QR code for now
-- No made-up token fields just because another tool exposes them
-- No pretending platform-routed pricing is a direct vendor bill
-- No sanding away the weird, uncomfortable energy of a real receipt
-
-If the output feels too clean, it probably stopped feeling true.
-
----
-
-## Validation
-
-Before shipping changes, run:
-
-```bash
-python3 scripts/validate_receipt.py
-```
-
-It checks things like:
-
-- line width
-- required fields
-- logo alignment
-- barcode presence
-- pricing fallbacks
-- unsupported field leakage
 
 ---
 

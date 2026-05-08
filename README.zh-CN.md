@@ -77,12 +77,6 @@ USD 预估                                $0.062851
             CC_20260427_155533_9A83E3
 ```
 
----
-
-## 怎么触发
-
-`token-receipt` 有三种触发方式。
-
 ### footer 才是亮点
 
 footer 不是装饰。
@@ -108,6 +102,10 @@ footer 是最后那一刀。
 它会从“冷冷记账”切成“收银台知道你打赏了”的口气。
 
 如果小票好看，但 footer 不够扎心，那这张票还没完成。
+
+---
+
+## 怎么触发
 
 ### 1. 在聊天里直接触发
 
@@ -143,29 +141,6 @@ python3 scripts/install_claude_auto_trigger.py
 ```
 
 装好以后，Claude Code 会话结束时就会自动出 receipt，不需要你再多说一句。
-
-### 3. 直接跑 CLI
-
-如果你不是通过 skill 触发，而是想手动直接跑脚本，就用：
-
-```bash
-python3 scripts/token_receipt.py --agent-tool codex
-python3 scripts/token_receipt.py --agent-tool claude-code
-python3 scripts/token_receipt.py --agent-tool kimi-code
-python3 scripts/token_receipt.py --agent-tool opencode
-python3 scripts/token_receipt.py --session ~/.local/share/opencode/opencode.db --opencode-session-id ses_xxx --agent-tool opencode
-python3 scripts/token_receipt.py --agent-tool claude-code --language zh-CN
-```
-
-触发方式一览：
-
-| 软件 | 聊天里手动触发 | 自动触发 |
-| --- | --- | --- |
-| Codex | 说 `token receipt` 或同义触发词 | 暂未提供 |
-| Claude Code | 说 `token receipt` 或同义触发词 | 安装后支持 `SessionEnd` |
-| Trae | 说 `token receipt` 或同义触发词 | 暂未提供 |
-| Kimi Code | 说 `token receipt` 或同义触发词；CLI 可用 `--agent-tool kimi-code` | 暂未提供（读本地 `context.jsonl`） |
-| OpenCode | 同上；CLI `--agent-tool opencode` 或指定 `opencode*.db` | 暂未提供（读本地 SQLite） |
 
 ---
 
@@ -304,39 +279,6 @@ python3 scripts/uninstall_claude_auto_trigger.py
 账单出现。
 
 嘴硬窗口关闭。
-
----
-
-## 这个项目的脾气
-
-这个项目故意不“温柔”。
-
-- 不把主输出做成 Markdown 表格
-- 先不做二维码
-- 别的工具有的字段，这里不一定照单全收
-- 平台路由价，不会伪装成厂商直连价
-- 保留那种“真像一张账单”的别扭劲儿
-
-如果输出太干净，往往说明它已经不够真实了。
-
----
-
-## 验证
-
-改完东西以后，至少跑这一条：
-
-```bash
-python3 scripts/validate_receipt.py
-```
-
-它会帮你确认：
-
-- 行宽没炸
-- 必备字段还在
-- logo 没歪
-- 条形码还活着
-- 价格降级逻辑没坏
-- 没把不该打印的字段偷偷打上票面
 
 ---
 
