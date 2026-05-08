@@ -105,6 +105,24 @@ If the receipt looks good but the footer has no sting, the job is not done.
 
 ---
 
+## Install
+
+Recommended: install it with the Skills CLI.
+
+```bash
+npx skills add https://github.com/Hchen1218/token-receipt -g -y
+```
+
+If you only want it in a specific host, install it there:
+
+```bash
+npx skills add https://github.com/Hchen1218/token-receipt -a codex -y
+npx skills add https://github.com/Hchen1218/token-receipt -a claude-code -y
+npx skills add https://github.com/Hchen1218/token-receipt -a opencode -y
+```
+
+---
+
 ## How to trigger it
 
 ### 1. Trigger it inside chat

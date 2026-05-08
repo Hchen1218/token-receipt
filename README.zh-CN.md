@@ -105,6 +105,24 @@ footer 是最后那一刀。
 
 ---
 
+## 安装
+
+推荐直接用 Skills CLI 安装：
+
+```bash
+npx skills add https://github.com/Hchen1218/token-receipt -g -y
+```
+
+如果你只想把它装到某个软件里，也可以定向安装：
+
+```bash
+npx skills add https://github.com/Hchen1218/token-receipt -a codex -y
+npx skills add https://github.com/Hchen1218/token-receipt -a claude-code -y
+npx skills add https://github.com/Hchen1218/token-receipt -a opencode -y
+```
+
+---
+
 ## 怎么触发
 
 ### 1. 在聊天里直接触发
