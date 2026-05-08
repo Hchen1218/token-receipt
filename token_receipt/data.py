@@ -925,13 +925,19 @@ def requested_agent_tool(args: argparse.Namespace, env: Optional[Mapping[str, st
 
 def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
     if has_manual_usage(args):
-        return load_manual_snapshot(args)
+        return _finalize(load_manual_snapshot(args), args)
 
     if args.session:
         if is_claude_usage_file(args.session):
-            return load_snapshot_from_claude_usage(args.session, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_claude_usage(args.session, args.model, args.provider),
+                args,
+            )
         if is_kimi_context_file(args.session):
-            return load_snapshot_from_kimi_context(args.session, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_kimi_context(args.session, args.model, args.provider),
+                args,
+            )
         if is_opencode_database_file(args.session):
             ses = (getattr(args, "opencode_session_id", None) or "").strip() or runtime_opencode_session_id()
             if not ses:
@@ -939,10 +945,14 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
                     "OpenCode: --session points to an OpenCode SQLite file. "
                     "Add --opencode-session-id <ses_...> or set OPENCODE_SESSION_ID."
                 )
-            return load_snapshot_from_opencode_sqlite(
-                args.session, ses, args.scope, args.model, args.provider
+            return _finalize(
+                load_snapshot_from_opencode_sqlite(args.session, ses, args.scope, args.model, args.provider),
+                args,
             )
-        return load_snapshot_from_session(args.session, args.scope, args.model, args.provider)
+        return _finalize(
+            load_snapshot_from_session(args.session, args.scope, args.model, args.provider),
+            args,
+        )
 
     agent_tool = requested_agent_tool(args)
 
@@ -954,7 +964,10 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         if claude_path is None:
             claude_path = newest_claude_usage_file()
         if claude_path:
-            return load_snapshot_from_claude_usage(claude_path, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_claude_usage(claude_path, args.model, args.provider),
+                args,
+            )
         raise SystemExit(
             "No Claude Code usage log found under ~/.claude/usage-data/session-meta. "
             "If you are on Windows, the equivalent home-relative path is %USERPROFILE%\\.claude\\usage-data\\session-meta."
@@ -968,7 +981,10 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         if session_path is None:
             session_path = newest_session_file()
         if session_path:
-            return load_snapshot_from_session(session_path, args.scope, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_session(session_path, args.scope, args.model, args.provider),
+                args,
+            )
         raise SystemExit(
             "No Codex session file found under ~/.codex/sessions or ~/.codex/archived_sessions. "
             "If you are on Windows, the equivalent home-relative paths are %USERPROFILE%\\.codex\\sessions and %USERPROFILE%\\.codex\\archived_sessions."
@@ -982,7 +998,10 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         if kimi_path is None:
             kimi_path = newest_kimi_context_file()
         if kimi_path:
-            return load_snapshot_from_kimi_context(kimi_path, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_kimi_context(kimi_path, args.model, args.provider),
+                args,
+            )
         share = kimi_share_dir()
         raise SystemExit(
             f"No Kimi Code context.jsonl found under {share / 'sessions'} or {share / 'imported_sessions'}. "
@@ -994,7 +1013,10 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         if ses:
             db_hit = global_find_opencode_db_for_session(ses)
             if db_hit:
-                return load_snapshot_from_opencode_sqlite(db_hit, ses, args.scope, args.model, args.provider)
+                return _finalize(
+                    load_snapshot_from_opencode_sqlite(db_hit, ses, args.scope, args.model, args.provider),
+                    args,
+                )
             raise SystemExit(
                 f"OpenCode session id {ses!r} not found in any opencode*.db under known data dirs. "
                 "Try `opencode session list`, OPENCODE_DATA_DIR, or `--session /path/to/opencode.db --opencode-session-id ...`."
@@ -1002,7 +1024,10 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         newest = global_newest_opencode_session()
         if newest:
             db_path, sid2 = newest
-            return load_snapshot_from_opencode_sqlite(db_path, sid2, args.scope, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_opencode_sqlite(db_path, sid2, args.scope, args.model, args.provider),
+                args,
+            )
         roots = ", ".join(str(p) for p in opencode_standard_dirs())
         raise SystemExit(
             f"No OpenCode SQLite (opencode*.db) found under: {roots}. "
@@ -1030,13 +1055,25 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
     if len(sources) == 1:
         source_type, path = sources[0]
         if source_type == "codex":
-            return load_snapshot_from_session(path, args.scope, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_session(path, args.scope, args.model, args.provider),
+                args,
+            )
         if source_type == "kimi-code":
-            return load_snapshot_from_kimi_context(path, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_kimi_context(path, args.model, args.provider),
+                args,
+            )
         if source_type == "opencode":
             db_p, sid_o = path  # type: ignore[misc]
-            return load_snapshot_from_opencode_sqlite(db_p, sid_o, args.scope, args.model, args.provider)
-        return load_snapshot_from_claude_usage(path, args.model, args.provider)
+            return _finalize(
+                load_snapshot_from_opencode_sqlite(db_p, sid_o, args.scope, args.model, args.provider),
+                args,
+            )
+        return _finalize(
+            load_snapshot_from_claude_usage(path, args.model, args.provider),
+            args,
+        )
 
     if len(sources) > 1:
         raise SystemExit(
@@ -1050,6 +1087,22 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         "No Codex, Claude Code, Kimi Code, or OpenCode session logs found locally. "
         "For Trae, automatic import is not implemented yet; provide --input-tokens and --output-tokens for manual mode."
     )
+
+
+def _finalize(snapshot: UsageSnapshot, args: argparse.Namespace) -> UsageSnapshot:
+    """Post-loader rewrites that should apply to every code path."""
+    from .bedrock import resolve_provider_and_model
+
+    # Explicit CLI flags win; otherwise, rewrite Bedrock-shaped provider/model.
+    if not args.provider and not args.model:
+        snapshot.provider, snapshot.model = resolve_provider_and_model(
+            snapshot.provider, snapshot.model,
+        )
+    elif not args.provider:
+        snapshot.provider, _ = resolve_provider_and_model(snapshot.provider, snapshot.model)
+    elif not args.model:
+        _, snapshot.model = resolve_provider_and_model(snapshot.provider, snapshot.model)
+    return snapshot
 
 
 
