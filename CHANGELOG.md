@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-09
+
+### Fixed
+- `APAC Bedrock Haiku 3.5` (`claude-3-5-haiku`) now normalizes to `claude-3.5-haiku` so `find_price` hits the anthropic pricing entry (was rendering `PROVIDER: AWS BEDROCK` with `USD ESTIMATE: UNMAPPED`).
+- `runtime_claude_session_id` now recognizes `CLAUDE_CODE_SESSION_ID` (the variable Claude Code actually exports), with `CLAUDE_SESSION_ID` retained as a fallback. `--scope session`/`session-all` used to fail with "sessionId not set" inside real Claude Code sessions.
+
+### Changed
+- Test helpers now share a single `LEAKY_ENV_VARS` list (`token_receipt/_envguard.py`); in-process pricing and bedrock tests now scrub it in `setUp` so they pass in Claude Code on Bedrock dev shells.
+
 ## 2026-05-08
 
 ### Added
