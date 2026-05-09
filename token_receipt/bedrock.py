@@ -21,6 +21,7 @@ BEDROCK_MODEL_PREFIXES: Tuple[str, ...] = (
 
 _VERSION_SUFFIX_RE = re.compile(r"\[[^\]]*\]$")
 _MAJOR_MINOR_DASH_RE = re.compile(r"^(claude-[a-z]+-\d+)-(\d+)$")
+_MAJOR_MINOR_SLUG_RE = re.compile(r"^claude-(\d+)-(\d+)-([a-z]+)$")
 
 
 def is_bedrock_env(env: Optional[Mapping[str, str]] = None) -> bool:
@@ -41,6 +42,10 @@ def normalize_bedrock_model(model: str) -> str:
     match = _MAJOR_MINOR_DASH_RE.match(model)
     if match:
         model = f"{match.group(1)}.{match.group(2)}"
+        return model
+    match = _MAJOR_MINOR_SLUG_RE.match(model)
+    if match:
+        model = f"claude-{match.group(1)}.{match.group(2)}-{match.group(3)}"
     return model
 
 

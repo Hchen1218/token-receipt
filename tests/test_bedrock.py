@@ -64,6 +64,23 @@ class NormalizeBedrockModelTest(unittest.TestCase):
             "claude-haiku-4.5",
         )
 
+    def test_normalizes_claude_3_5_haiku_from_apac(self):
+        # claude-N-M-<slug> shape: version numbers before the slug, not after.
+        self.assertEqual(
+            bedrock.normalize_bedrock_model("apac.anthropic.claude-3-5-haiku"),
+            "claude-3.5-haiku",
+        )
+
+    def test_normalizes_claude_3_5_haiku_from_any_region(self):
+        for prefix in ("global", "us", "eu", "apac"):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(
+                    bedrock.normalize_bedrock_model(
+                        f"{prefix}.anthropic.claude-3-5-haiku"
+                    ),
+                    "claude-3.5-haiku",
+                )
+
 
 class ResolveProviderAndModelTest(unittest.TestCase):
     def test_bedrock_prefix_rewrites_provider(self):
@@ -88,6 +105,19 @@ class ResolveProviderAndModelTest(unittest.TestCase):
             bedrock.resolve_provider_and_model("openai", "gpt-5.4", env={}),
             ("openai", "gpt-5.4"),
         )
+
+    def test_resolve_provider_and_model_pricing_match(self):
+        """End-to-end: APAC Bedrock Haiku 3.5 must land in pricing.json."""
+        from token_receipt.models import DEFAULT_PRICING
+        from token_receipt.pricing import find_price, load_pricing
+
+        provider, model = bedrock.resolve_provider_and_model(
+            "anthropic", "apac.anthropic.claude-3-5-haiku", env={},
+        )
+        self.assertEqual((provider, model), ("aws bedrock", "claude-3.5-haiku"))
+        pricing = load_pricing(DEFAULT_PRICING)
+        entry = find_price(pricing, provider, model)
+        self.assertIsNotNone(entry, "claude-3.5-haiku missing from DEFAULT_PRICING")
 
 
 class ResolveSnapshotWiresInBedrockTest(unittest.TestCase):
