@@ -1,0 +1,2 @@
+{"type":"assistant","sessionId":"sess-3","uuid":"c1","timestamp":"2026-05-07T12:00:00.000Z","isSidechain":false,"message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":7,"output_tokens":3}}}
+{"type":"assistant","sessionId":"sess-3","uuid":"c1","timestamp":"2026-05-07T12:00:01.000Z","isSidechain":false,"message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":7,"output_tokens":3}}}

@@ -8,9 +8,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from .data import available_fields_report, estimate_cost, resolve_snapshot
+from .data import available_fields_report, resolve_snapshot
 from .html_render import render_receipt_html
 from .models import ALLOWED_WIDTHS, DEFAULT_FOOTER, DEFAULT_PRICING, canonical_language
+from .pricing import compute_total, estimate_cost
 from .render import auto_brand, print_receipt, render_receipt
 
 DEFAULT_CHAT_HTML_PATH = Path("/tmp/token-receipt.html")
@@ -26,7 +27,17 @@ def format_chat_reply(receipt_text: str, html_path: Optional[Path] = None) -> st
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Render token usage as an ASCII thermal receipt.")
     parser.add_argument("--session", type=Path, help="Codex JSONL session path. Defaults to newest local session.")
-    parser.add_argument("--scope", choices=("latest-turn", "session"), default="latest-turn")
+    parser.add_argument(
+        "--scope",
+        choices=("latest-turn", "session", "today", "session-all"),
+        default="latest-turn",
+        help=(
+            "Billing scope. latest-turn = last assistant turn (default). "
+            "session = current session aggregated from jsonl transcripts. "
+            "today = every session since local midnight. "
+            "session-all = current session across time."
+        ),
+    )
     parser.add_argument("--width", type=int, choices=ALLOWED_WIDTHS, default=48)
     parser.add_argument("--agent-tool", choices=("auto", "codex", "claude-code", "trae", "kimi-code", "opencode", "generic"), default=None, help="Software data source and receipt logo. When omitted, token-receipt uses the current runtime if it can detect one; otherwise it will ask you to disambiguate instead of guessing across software.")
     parser.add_argument("--brand", choices=("auto", "codex", "claude-code", "trae", "kimi-code", "opencode", "generic"), default=None, help="Backward-compatible logo override. Prefer --agent-tool when choosing a software data source.")
@@ -50,6 +61,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--reasoning-output-tokens", type=int)
     parser.add_argument("--total-tokens", type=int)
     parser.add_argument("--context-window", type=int)
+    parser.add_argument(
+        "--cache-ttl",
+        choices=("auto", "5m", "1h"),
+        default="auto",
+        help=(
+            "Cache-write TTL for cost estimation. "
+            "auto = use per-message split if the snapshot provides one, "
+            "else the ENABLE_PROMPT_CACHING_1H_BEDROCK env flag, else 5m."
+        ),
+    )
+    parser.add_argument(
+        "--hide-fields",
+        default="",
+        help=(
+            "Comma-separated row keys to drop from the receipt. "
+            "Valid keys: supplier, model, context, price-mapping, price-date, rate-note."
+        ),
+    )
     parser.add_argument("--receipt-seed")
     parser.add_argument("--show-fields", action="store_true", help="Print a JSON report of fields available from the selected source instead of a receipt.")
     parser.add_argument("--output", choices=("text", "html"), default="text", help="Receipt output format. Use html for a printable browser page.")
@@ -62,6 +91,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _parse_hide_fields(raw: str) -> frozenset:
+    if not raw:
+        return frozenset()
+    return frozenset(part.strip() for part in raw.split(",") if part.strip())
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -72,6 +107,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.model:
         snapshot.model = args.model
 
+    if not snapshot.total_tokens:
+        snapshot.total_tokens = compute_total(snapshot)
+
     if args.show_fields:
         fields_json = json.dumps(available_fields_report(snapshot), indent=2, ensure_ascii=True)
         if args.write:
@@ -81,30 +119,51 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(fields_json)
         return 0
 
-    estimate = estimate_cost(snapshot, args.pricing)
+    cache_ttl_override = None if args.cache_ttl == "auto" else args.cache_ttl
+    estimate = estimate_cost(snapshot, args.pricing, cache_ttl_override=cache_ttl_override)
+
     agent_tool = auto_brand(snapshot.provider, snapshot.source, args.agent_tool or args.brand or "auto")
     conversation_hint = args.conversation_summary or args.conversation_hint
     language = canonical_language(args.language)
+    hidden = _parse_hide_fields(args.hide_fields)
+
     html_target = args.write_html
     if args.chat_reply and html_target is None and args.output != "html":
         html_target = DEFAULT_CHAT_HTML_PATH
+
     html_receipt = None
     if args.output == "html" or html_target:
-        html_receipt = render_receipt_html(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
+        html_receipt = render_receipt_html(
+            snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone,
+            conversation_hint, language,
+        )
+
     if args.output == "html":
-        receipt_text = html_receipt or render_receipt_html(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
+        receipt_text = html_receipt or render_receipt_html(
+            snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone,
+            conversation_hint, language,
+        )
     else:
-        receipt_text = render_receipt(snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone, conversation_hint, language)
+        receipt_text = render_receipt(
+            snapshot, estimate, args.width, agent_tool, args.footer, args.footer_tone,
+            conversation_hint, language, hidden=hidden,
+        )
+
     if html_target:
         html_target.parent.mkdir(parents=True, exist_ok=True)
         html_target.write_text((html_receipt or "") + "\n", encoding="utf-8")
     if args.write:
         args.write.parent.mkdir(parents=True, exist_ok=True)
         args.write.write_text(receipt_text + "\n", encoding="utf-8")
+
     if args.chat_reply:
         print(format_chat_reply(receipt_text, html_target))
         return 0
+
     if args.write:
+        if html_target:
+            sys.stdout.write(f"wrote to: {args.write}\n")
+            sys.stdout.write(f"wrote to: {html_target}\n")
         return 0
     if args.output == "html":
         print(receipt_text)

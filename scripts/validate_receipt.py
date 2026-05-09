@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from token_receipt._envguard import LEAKY_ENV_VARS  # noqa: E402
 from token_receipt.data import find_codex_session_for_thread, newest_claude_usage_file, requested_agent_tool, runtime_agent_tool, runtime_claude_session_id, runtime_codex_thread_id, runtime_opencode_session_id  # noqa: E402
 from token_receipt.models import printable_receipt_char, visual_display_width  # noqa: E402
 from token_receipt.render import zh_tip_footer_candidates  # noqa: E402
@@ -27,10 +28,20 @@ UNINSTALLER = ROOT / "scripts" / "uninstall_claude_auto_trigger.py"
 
 
 def run_script(script: Path, *args: str, env: dict[str, str] | None = None, stdin_text: str | None = None) -> str:
-    child_env = {**os.environ}
+    # Scrub vars that would leak Bedrock/TTL preferences from the parent shell
+    # into subprocess behavior (same list as tests/test_cli_flags.py::_run).
+    child_env = {k: v for k, v in os.environ.items() if k not in LEAKY_ENV_VARS}
     child_env.setdefault("PYTHONIOENCODING", "utf-8")
     if env:
         child_env.update(env)
+    # Re-scrub after merge: some callers intentionally spread os.environ (e.g.
+    # to keep PATH/HOME) and would otherwise reintroduce the leaky vars. Cases
+    # that explicitly want these set (e.g. "CLAUDE_CODE_USE_BEDROCK": "1") are
+    # preserved by checking the caller-supplied env first.
+    caller_env_keys = set(env or {})
+    for leaky in LEAKY_ENV_VARS:
+        if leaky not in caller_env_keys:
+            child_env.pop(leaky, None)
     result = subprocess.run(
         [sys.executable, str(script), *args],
         cwd=str(ROOT),
@@ -482,9 +493,14 @@ def main() -> int:
         "kimi-code",
         "--width",
         "48",
-        env={**os.environ, "HOME": str(kimi_home), "USERPROFILE": str(kimi_home), "KIMI_SESSION_ID": "kimi-session-xyz"},
+        # run_script already inherits the parent env (scrubbed of Bedrock/TTL leakers);
+        # we only need to override HOME/USERPROFILE/KIMI_SESSION_ID here.
+        env={"HOME": str(kimi_home), "USERPROFILE": str(kimi_home), "KIMI_SESSION_ID": "kimi-session-xyz"},
     )
-    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "CONTEXT USED", "8,150"])
+    # CONTEXT USED is latest-turn-only as of Part 09; Kimi's context.jsonl produces a session-scope
+    # snapshot, so the row is now intentionally absent. The 8,150 tally still lands on TOTAL.
+    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "8,150"])
+    assert "CONTEXT USED" not in kimi_by_session, "session-scope receipts must not render CONTEXT USED"
     assert "Input Tokens" not in kimi_by_session
     assert "UNMAPPED" in kimi_by_session
     assert_logo_label_aligned(kimi_by_session, "KIMI CODE")
@@ -544,7 +560,7 @@ def main() -> int:
         "--output-tokens", "1000000",
         "--width", "48",
     )
-    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.364000"])
+    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.434000"])
 
     glm = run_case(
         "--provider", "bigmodel",
@@ -874,6 +890,117 @@ def main() -> int:
     saved = json.loads(settings_path.read_text(encoding="utf-8"))
     session_end_after = saved.get("hooks", {}).get("SessionEnd", [])
     assert not session_end_after
+
+    # --- Part 06: Bedrock provider rewrite (env flag path) ---
+    # --model is explicit here, so _finalize only rewrites provider; the unit
+    # tests in tests/test_bedrock.py cover normalize_bedrock_model end-to-end.
+    bedrock_text = run_case(
+        "--agent-tool", "claude-code",
+        "--model", "global.anthropic.claude-opus-4-7[1m]",
+        "--input-tokens", "16897",
+        "--cached-input-tokens", "22000000",
+        "--cache-write-tokens", "8180000",
+        "--output-tokens", "434360",
+        "--width", "48",
+        env={"CLAUDE_CODE_USE_BEDROCK": "1"},
+    )
+    assert "AWS BEDROCK" in bedrock_text, f"expected AWS BEDROCK, got: {bedrock_text!r}"
+    assert "TOTAL" in bedrock_text
+    # The explicit model flag wins — display keeps the raw Bedrock string.
+    assert "global.anthropic.claude-opus-4-7[1m]" in bedrock_text, "explicit --model should be preserved"
+
+    # --- Part 05: all four buckets billed, 5m TTL default ---
+    opus_5m = run_case(
+        "--provider", "anthropic",
+        "--agent-tool", "claude-code",
+        "--model", "claude-opus-4.7",
+        "--input-tokens", "16897",
+        "--cached-input-tokens", "22000000",
+        "--cache-write-tokens", "8180000",
+        "--output-tokens", "434360",
+        "--width", "48",
+    )
+    # Expect ~$73.07 (see spec).
+    assert "$73." in opus_5m, f"expected $73.xx, got: {opus_5m}"
+    assert "30,631,257" in opus_5m, "expected fixed TOTAL=30,631,257 across all 4 buckets"
+
+    # --- Part 05: 1h TTL via --cache-ttl 1h ---
+    opus_1h = run_case(
+        "--provider", "anthropic",
+        "--agent-tool", "claude-code",
+        "--model", "claude-opus-4.7",
+        "--input-tokens", "16897",
+        "--cached-input-tokens", "22000000",
+        "--cache-write-tokens", "8180000",
+        "--output-tokens", "434360",
+        "--cache-ttl", "1h",
+        "--width", "48",
+    )
+    assert "$103." in opus_1h, f"expected $103.xx, got: {opus_1h}"
+
+    # --- Part 05/09: PARTIAL status renders estimate* + PRICE: PARTIAL, no PRICE DATE ---
+    partial_pricing = Path(tempfile.mkdtemp()) / "pricing.json"
+    partial_pricing.write_text(json.dumps({
+        "currency": "USD",
+        "models": [{
+            "provider": "acme", "model": "bare", "aliases": ["bare"],
+            "input_per_million": 1.0,
+            # output_per_million intentionally missing
+        }],
+    }))
+    partial_text = run_case(
+        "--provider", "acme", "--model", "bare",
+        "--agent-tool", "generic",
+        "--pricing", str(partial_pricing),
+        "--input-tokens", "1000", "--output-tokens", "1000",
+        "--width", "48",
+    )
+    assert "PARTIAL" in partial_text, f"expected PRICE: PARTIAL, got: {partial_text}"
+    assert "PRICE DATE" not in partial_text, "PARTIAL must drop PRICE DATE row"
+    assert "USD ESTIMATE*" in partial_text, "PARTIAL estimate label must carry trailing *"
+
+    # --- Part 08/09: --hide-fields drops rows ---
+    hide_text = run_case(
+        "--provider", "anthropic", "--model", "claude-sonnet-4.5",
+        "--agent-tool", "claude-code",
+        "--input-tokens", "100", "--output-tokens", "100",
+        "--hide-fields", "price-date,context",
+        "--width", "48",
+    )
+    assert "PRICE DATE" not in hide_text, "expected PRICE DATE hidden"
+    assert "CONTEXT USED" not in hide_text, "expected CONTEXT USED hidden"
+    assert "USD ESTIMATE" in hide_text, "PRICE line should still render"
+
+    # --- Part 08: --write produces zero stdout; --write + --write-html prints exactly two "wrote to:" lines ---
+    with tempfile.TemporaryDirectory() as write_tmp:
+        write_txt = Path(write_tmp) / "r.txt"
+        write_html = Path(write_tmp) / "r.html"
+        write_only = subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--provider", "anthropic", "--model", "claude-sonnet-4.5",
+             "--agent-tool", "claude-code",
+             "--input-tokens", "1", "--output-tokens", "1",
+             "--write", str(write_txt)],
+            cwd=str(ROOT), text=True, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            encoding="utf-8", errors="replace",
+        )
+        assert write_only.stdout == "", f"--write alone must be silent; got {write_only.stdout!r}"
+
+        write_both = subprocess.run(
+            [sys.executable, str(SCRIPT),
+             "--provider", "anthropic", "--model", "claude-sonnet-4.5",
+             "--agent-tool", "claude-code",
+             "--input-tokens", "1", "--output-tokens", "1",
+             "--write", str(write_txt),
+             "--write-html", str(write_html)],
+            cwd=str(ROOT), text=True, check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            encoding="utf-8", errors="replace",
+        )
+        lines = [line for line in write_both.stdout.splitlines() if line]
+        assert len(lines) == 2, f"expected exactly two 'wrote to:' lines, got: {write_both.stdout!r}"
+        assert all(line.startswith("wrote to:") for line in lines), write_both.stdout
 
     print("token-receipt validation passed")
     return 0
