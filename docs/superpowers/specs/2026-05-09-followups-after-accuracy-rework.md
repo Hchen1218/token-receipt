@@ -214,7 +214,15 @@ One PR, three commits:
 - Clean-env test run: all tests OK, zero failures/errors, and the count is strictly greater than pre-PR baseline (at least +4 from FU-2 and FU-3 guard, plus the FU-1 normalization tests).
 - Bare dev-shell test run: same count as clean-env, all OK (proves the scrub closed the leakage).
 - `validate_receipt.py` exits 0 under both envs.
-- Manual sanity: `env -i PATH="$PATH" HOME="$HOME" python3 scripts/token_receipt.py --agent-tool claude-code --model apac.anthropic.claude-3-5-haiku --input-tokens 1000 --output-tokens 1000 --width 48` displays `SUPPLIER: AWS BEDROCK`, `PRICE: claude-3.5-haiku`, and a real USD amount (not `UNMAPPED`).
+- Manual sanity (auto-detect path, since explicit `--model` is intentionally preserved verbatim — see `tests/test_bedrock.py::test_manual_snapshot_bedrock_model_normalized` and `scripts/validate_receipt.py:820`):
+  ```bash
+  env -i PATH="$PATH" HOME="$HOME" \
+    CLAUDE_CODE_USE_BEDROCK=1 \
+    ANTHROPIC_MODEL="apac.anthropic.claude-3-5-haiku" \
+    python3 scripts/token_receipt.py --agent-tool claude-code \
+    --input-tokens 1000 --output-tokens 1000 --width 48
+  ```
+  Must render `PROVIDER: AWS BEDROCK`, `MODEL: claude-3.5-haiku`, and a real `USD ESTIMATE` (e.g. `$0.004800`), not `UNMAPPED`.
 - CHANGELOG has a `## 2026-05-09` block with 3 bullets.
 
 ## Non-goals for this PR
