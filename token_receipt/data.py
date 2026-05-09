@@ -898,9 +898,9 @@ def runtime_agent_tool(env: Optional[Mapping[str, str]] = None) -> Optional[str]
 
 def runtime_claude_session_id(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     runtime = env or os.environ
-    for key in ("CLAUDE_SESSION_ID",):
+    for key in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID"):
         value = runtime.get(key)
-        if value:
+        if value and value.strip():
             return value.strip()
     return None
 
@@ -1131,8 +1131,8 @@ def _load_claude_aggregate(args: argparse.Namespace) -> UsageSnapshot:
         if not session_id:
             raise SystemExit(
                 f"--scope {args.scope} needs the active Claude Code sessionId. "
-                "Run token-receipt from inside Claude Code (CLAUDE_SESSION_ID is set), "
-                "or pass --scope today for a whole-day aggregate."
+                "Run token-receipt from inside Claude Code (CLAUDE_CODE_SESSION_ID or "
+                "CLAUDE_SESSION_ID must be set), or pass --scope today for a whole-day aggregate."
             )
     else:
         since = epoch
