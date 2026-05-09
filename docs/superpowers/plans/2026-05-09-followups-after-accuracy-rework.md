@@ -45,7 +45,7 @@ Before changing anything, capture the current test count and which tests pass/fa
 
 Run:
 ```bash
-cd /Users/kentpeng/projects/token-receipt
+cd <repo-root>
 env -i PATH="$PATH" HOME="$HOME" python3 -m unittest discover -s tests -v 2>&1 | tail -5
 ```
 
@@ -55,7 +55,7 @@ Expected: ends with a line like `Ran N tests in …s\n\nOK`. Record `N` as the p
 
 Run (in a shell that has Bedrock-on-Claude-Code env set, i.e. without `env -i`):
 ```bash
-cd /Users/kentpeng/projects/token-receipt
+cd <repo-root>
 python3 -m unittest discover -s tests -v 2>&1 | tail -30
 ```
 
@@ -585,14 +585,14 @@ Expected: same count as the clean-env run, and `OK` (no failures). If you still 
 - [ ] **Step 9: Commit FU-3**
 
 ```bash
-git -C /Users/kentpeng/projects/token-receipt add \
+git add \
   token_receipt/_envguard.py \
   tests/test_envguard.py \
   tests/test_cli_flags.py \
   tests/test_pricing_math.py \
   tests/test_bedrock.py \
   scripts/validate_receipt.py
-git -C /Users/kentpeng/projects/token-receipt commit -m "$(cat <<'EOF'
+git commit -m "$(cat <<'EOF'
 refactor(tests): extract LEAKY_ENV_VARS and scrub in-process env leakage
 
 Claude Code on Bedrock dev shells export ENABLE_PROMPT_CACHING_1H_BEDROCK,
@@ -805,10 +805,10 @@ Expected: `OK`, same count (baseline + 4). The message change has no test assert
 - [ ] **Step 4: Commit FU-2**
 
 ```bash
-git -C /Users/kentpeng/projects/token-receipt add \
+git add \
   token_receipt/data.py \
   tests/test_data.py
-git -C /Users/kentpeng/projects/token-receipt commit -m "$(cat <<'EOF'
+git commit -m "$(cat <<'EOF'
 fix(data): widen Claude Code session-id env lookup to CLAUDE_CODE_SESSION_ID
 
 Claude Code actually exports CLAUDE_CODE_SESSION_ID (confirmed with `env |
@@ -1052,10 +1052,10 @@ Expected: both print `token-receipt validation passed` and exit 0.
 - [ ] **Step 7: Commit FU-1**
 
 ```bash
-git -C /Users/kentpeng/projects/token-receipt add \
+git add \
   token_receipt/bedrock.py \
   tests/test_bedrock.py
-git -C /Users/kentpeng/projects/token-receipt commit -m "$(cat <<'EOF'
+git commit -m "$(cat <<'EOF'
 fix(bedrock): normalize claude-N-M-<slug> models to find_price shape
 
 _MAJOR_MINOR_DASH_RE only matched claude-<word>-N-M (e.g. claude-opus-4-7 →
@@ -1117,8 +1117,8 @@ Insert the new block so it opens:
 - [ ] **Step 2: Commit the CHANGELOG**
 
 ```bash
-git -C /Users/kentpeng/projects/token-receipt add CHANGELOG.md
-git -C /Users/kentpeng/projects/token-receipt commit -m "$(cat <<'EOF'
+git add CHANGELOG.md
+git commit -m "$(cat <<'EOF'
 docs(changelog): add 2026-05-09 block for follow-up PR
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
@@ -1191,7 +1191,7 @@ Expected: the `## 2026-05-09` block at the top with 3 bullets (one Fixed/Fixed/C
 - [ ] **Step 7: Commit log shape**
 
 ```bash
-git -C /Users/kentpeng/projects/token-receipt log --oneline -5
+git log --oneline -5
 ```
 
 Expected: four new commits on top of `fb69d20`:
