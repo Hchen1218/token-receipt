@@ -9,22 +9,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from token_receipt._envguard import LEAKY_ENV_VARS
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "token_receipt.py"
 
 
 def _run(args, env=None):
-    # Start from parent env, then scrub vars that would leak Bedrock/TTL preferences
-    # into subprocess behavior, and finally apply any caller-supplied override.
-    child_env = {
-        k: v for k, v in os.environ.items()
-        if k not in {
-            "ENABLE_PROMPT_CACHING_1H_BEDROCK",
-            "CLAUDE_CODE_USE_BEDROCK",
-            "ANTHROPIC_MODEL",
-            "ANTHROPIC_SMALL_FAST_MODEL",
-        }
-    }
+    # Start from parent env, scrub LEAKY_ENV_VARS to keep subprocess behavior
+    # deterministic across dev shells, and finally apply any caller-supplied override.
+    child_env = {k: v for k, v in os.environ.items() if k not in LEAKY_ENV_VARS}
     if env:
         child_env.update(env)
     child_env.setdefault("PYTHONIOENCODING", "utf-8")

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from token_receipt import bedrock
+from token_receipt._envguard import LEAKY_ENV_VARS
 
 
 class IsBedrockEnvTest(unittest.TestCase):
@@ -88,6 +91,16 @@ class ResolveProviderAndModelTest(unittest.TestCase):
 
 
 class ResolveSnapshotWiresInBedrockTest(unittest.TestCase):
+    def setUp(self):
+        # resolve_snapshot → _finalize → resolve_provider_and_model reads
+        # os.environ directly via is_bedrock_env(); dev shells with
+        # CLAUDE_CODE_USE_BEDROCK=1 silently rewrite "unknown" to "aws bedrock".
+        # Scrub the known leakers so this class is deterministic everywhere.
+        scrubbed = {k: v for k, v in os.environ.items() if k not in LEAKY_ENV_VARS}
+        patcher = patch.dict(os.environ, scrubbed, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_manual_snapshot_bedrock_model_normalized(self):
         import argparse
         from token_receipt.data import resolve_snapshot

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from token_receipt._envguard import LEAKY_ENV_VARS
 from token_receipt.models import DEFAULT_PRICING, UsageSnapshot
 from token_receipt.pricing import estimate_cost
 
@@ -21,6 +24,16 @@ def _write_pricing(entries):
 
 
 class EstimateCostTest(unittest.TestCase):
+    def setUp(self):
+        # Dev shells (Claude Code on Bedrock) export env vars that silently
+        # re-route pricing resolution — scrub them so every test in this class
+        # runs against a deterministic os.environ. patch.dict can't delete
+        # keys, so rebuild the dict with leakers stripped and patch wholesale.
+        scrubbed = {k: v for k, v in os.environ.items() if k not in LEAKY_ENV_VARS}
+        patcher = patch.dict(os.environ, scrubbed, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_reported_session_5m_ttl(self):
         """Spec §\"Sanity check\" — expect $73.07 for 5m TTL."""
         snap = UsageSnapshot(

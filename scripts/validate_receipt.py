@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from token_receipt._envguard import LEAKY_ENV_VARS  # noqa: E402
 from token_receipt.data import find_codex_session_for_thread, newest_claude_usage_file, requested_agent_tool, runtime_agent_tool, runtime_claude_session_id, runtime_codex_thread_id, runtime_opencode_session_id  # noqa: E402
 from token_receipt.models import printable_receipt_char, visual_display_width  # noqa: E402
 from token_receipt.render import zh_tip_footer_candidates  # noqa: E402
@@ -26,18 +27,10 @@ INSTALLER = ROOT / "scripts" / "install_claude_auto_trigger.py"
 UNINSTALLER = ROOT / "scripts" / "uninstall_claude_auto_trigger.py"
 
 
-_LEAKY_ENV_VARS = {
-    "ENABLE_PROMPT_CACHING_1H_BEDROCK",
-    "CLAUDE_CODE_USE_BEDROCK",
-    "ANTHROPIC_MODEL",
-    "ANTHROPIC_SMALL_FAST_MODEL",
-}
-
-
 def run_script(script: Path, *args: str, env: dict[str, str] | None = None, stdin_text: str | None = None) -> str:
     # Scrub vars that would leak Bedrock/TTL preferences from the parent shell
     # into subprocess behavior (same list as tests/test_cli_flags.py::_run).
-    child_env = {k: v for k, v in os.environ.items() if k not in _LEAKY_ENV_VARS}
+    child_env = {k: v for k, v in os.environ.items() if k not in LEAKY_ENV_VARS}
     child_env.setdefault("PYTHONIOENCODING", "utf-8")
     if env:
         child_env.update(env)
@@ -46,7 +39,7 @@ def run_script(script: Path, *args: str, env: dict[str, str] | None = None, stdi
     # that explicitly want these set (e.g. "CLAUDE_CODE_USE_BEDROCK": "1") are
     # preserved by checking the caller-supplied env first.
     caller_env_keys = set(env or {})
-    for leaky in _LEAKY_ENV_VARS:
+    for leaky in LEAKY_ENV_VARS:
         if leaky not in caller_env_keys:
             child_env.pop(leaky, None)
     result = subprocess.run(
