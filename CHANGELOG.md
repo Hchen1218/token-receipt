@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-06-05
+
+### Added
+
+- Dedicated `token_receipt/pricing.py` module so pricing lookup, total fallback, and cost estimation can be tested independently
+- New unit test suite covering pricing math, total-token fallback, Claude runtime session detection, chat-reply link formatting, and session-scope context rendering
+- Refreshed pricing entries and aliases for newer model names including `ChatGPT 5.5`, `chat-latest`, `claude-opus-4.8`, `MiniMax 3`, and `MiMo V2.5 Pro`
+
+### Changed
+
+- Corrected total-token fallback so manual and Claude usage snapshots now sum every billable bucket instead of defaulting to `input + output`
+- Corrected cost estimation so `cached_input_tokens` and `cache_write_tokens` are billed independently instead of being clamped by `input_tokens`
+- Claude runtime session detection now prefers `CLAUDE_CODE_SESSION_ID` and falls back to `CLAUDE_SESSION_ID`
+- `--chat-reply` and Claude hook messages now emit local Printable HTML links as `file://` URIs instead of raw filesystem paths
+- Session-scope receipts now suppress `CONTEXT USED` to avoid presenting an accumulated view as if it were a single-turn context reading
+- Smoke coverage in `scripts/validate_receipt.py` now checks the corrected cache-heavy totals/costs, the `file://` HTML link format, session-scope context suppression, and the newer model aliases/prices
+
+### Notes
+
+- An Anthropic-style baseline comparison run was recorded locally at `/tmp/token-receipt-core-correctness-workspace/iteration-1`
+- In that validation round, the current version passed all eval assertions while the baseline version passed 22%, with the main regressions concentrated in cache billing math, local HTML link formatting, session-scope context display, and new-model price resolution
+
 ## 2026-05-05
 
 ### Added

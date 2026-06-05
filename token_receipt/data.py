@@ -1,4 +1,4 @@
-"""Data loading and pricing for token receipt."""
+"""Data loading helpers for token receipt."""
 
 from __future__ import annotations
 
@@ -15,11 +15,10 @@ from .models import (
     COMMON_TOKEN_FIELDS,
     OPTIONAL_TOKEN_FIELDS,
     RECEIPT_TOKEN_FIELDS,
-    PriceEstimate,
     UsageSnapshot,
     as_int,
-    normalize,
 )
+from .pricing import compute_total, estimate_cost, find_price, load_pricing
 
 
 def iter_session_files() -> Iterable[Path]:
@@ -652,8 +651,6 @@ def load_snapshot_from_opencode_sqlite(
 
     pricing_model = model_override.strip() if model_override and model_override.strip() else inferred_slug
 
-    total_agg = aggregated[0] + aggregated[1] + aggregated[2] + aggregated[3] + aggregated[4]
-
     fields: list[str] = []
     if inp_s > 0:
         fields.append("input_tokens")
@@ -669,13 +666,13 @@ def load_snapshot_from_opencode_sqlite(
     avail = tuple(sorted(set(fields)))
 
     source_ref = f"{db_path}#{session_id}"
-    return UsageSnapshot(
+    snapshot = UsageSnapshot(
         input_tokens=inp_s,
         cached_input_tokens=cached_s,
         cache_write_tokens=cw_s,
         output_tokens=outp_s,
         reasoning_output_tokens=reas_s,
-        total_tokens=total_agg,
+        total_tokens=0,
         context_tokens=None,
         context_window=None,
         provider=str(provider),
@@ -687,6 +684,8 @@ def load_snapshot_from_opencode_sqlite(
         available_fields=avail,
         skip_price_estimate=False,
     )
+    snapshot.total_tokens = compute_total(snapshot)
+    return snapshot
 
 
 def runtime_opencode_session_id(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
@@ -711,8 +710,7 @@ def load_snapshot_from_claude_usage(
     start_time = data.get("start_time")
     input_tokens = as_int(data.get("input_tokens"))
     output_tokens = as_int(data.get("output_tokens"))
-    total_tokens = input_tokens + output_tokens
-    available_fields = ["input_tokens", "output_tokens", "total_tokens"]
+    available_fields = ["input_tokens", "output_tokens"]
 
     transcript = transcript_path or find_claude_transcript_for_session(session_id)
     model = (
@@ -723,13 +721,13 @@ def load_snapshot_from_claude_usage(
     )
     provider = provider_override or infer_provider_from_model(model)
 
-    return UsageSnapshot(
+    snapshot = UsageSnapshot(
         input_tokens=input_tokens,
         cached_input_tokens=0,
         cache_write_tokens=0,
         output_tokens=output_tokens,
         reasoning_output_tokens=0,
-        total_tokens=total_tokens,
+        total_tokens=0,
         context_window=None,
         provider=str(provider),
         model=str(model),
@@ -739,6 +737,8 @@ def load_snapshot_from_claude_usage(
         scope="session",
         available_fields=tuple(available_fields),
     )
+    snapshot.total_tokens = compute_total(snapshot)
+    return snapshot
 
 
 def load_snapshot_from_session(path: Path, scope: str, model_override: Optional[str], provider_override: Optional[str]) -> UsageSnapshot:
@@ -800,8 +800,6 @@ def load_snapshot_from_session(path: Path, scope: str, model_override: Optional[
 
 def load_manual_snapshot(args: argparse.Namespace) -> UsageSnapshot:
     total = args.total_tokens
-    if total is None:
-        total = as_int(args.input_tokens) + as_int(args.output_tokens)
     available_fields = []
     if args.input_tokens is not None:
         available_fields.append("input_tokens")
@@ -822,7 +820,7 @@ def load_manual_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         cache_write_tokens=as_int(args.cache_write_tokens),
         output_tokens=as_int(args.output_tokens),
         reasoning_output_tokens=as_int(args.reasoning_output_tokens),
-        total_tokens=as_int(total),
+        total_tokens=as_int(total) if total is not None else 0,
         context_window=as_int(args.context_window) or None,
         provider=args.provider or "unknown",
         model=args.model or model_from_env() or "UNRECORDED",
@@ -895,9 +893,9 @@ def runtime_agent_tool(env: Optional[Mapping[str, str]] = None) -> Optional[str]
 
 def runtime_claude_session_id(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     runtime = env or os.environ
-    for key in ("CLAUDE_SESSION_ID",):
+    for key in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID"):
         value = runtime.get(key)
-        if value:
+        if value and value.strip():
             return value.strip()
     return None
 
@@ -1049,68 +1047,6 @@ def resolve_snapshot(args: argparse.Namespace) -> UsageSnapshot:
         "No Codex, Claude Code, Kimi Code, or OpenCode session logs found locally. "
         "For Trae, automatic import is not implemented yet; provide --input-tokens and --output-tokens for manual mode."
     )
-
-
-def load_pricing(path: Path) -> Dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def find_price(pricing: Dict[str, Any], provider: str, model: str) -> Optional[Dict[str, Any]]:
-    if not model or model == "UNRECORDED":
-        return None
-    provider_key = normalize(provider)
-    model_key = normalize(model)
-    for entry in pricing.get("models", []):
-        entry_provider = normalize(str(entry.get("provider", "")))
-        aliases = [entry.get("model", "")] + list(entry.get("aliases", []))
-        alias_keys = {normalize(str(alias)) for alias in aliases}
-        provider_matches = not provider_key or provider_key == "unknown" or provider_key == entry_provider
-        if provider_matches and model_key in alias_keys:
-            return entry
-    for entry in pricing.get("models", []):
-        aliases = [entry.get("model", "")] + list(entry.get("aliases", []))
-        if model_key in {normalize(str(alias)) for alias in aliases}:
-            return entry
-    return None
-
-
-def estimate_cost(snapshot: UsageSnapshot, pricing_path: Path) -> PriceEstimate:
-    # Kimi context.jsonl 只有上下文累计 token_count，不能直接套 API 分项单价
-    if snapshot.skip_price_estimate:
-        return PriceEstimate(status="UNMAPPED", amount=None)
-
-    pricing = load_pricing(pricing_path)
-    entry = find_price(pricing, snapshot.provider, snapshot.model)
-    if not entry:
-        return PriceEstimate(status="UNMAPPED", amount=None)
-
-    cached = min(snapshot.cached_input_tokens, snapshot.input_tokens)
-    cache_write = min(snapshot.cache_write_tokens, max(snapshot.input_tokens - cached, 0))
-    uncached = max(snapshot.input_tokens - cached - cache_write, 0)
-
-    input_rate = float(entry.get("input_per_million", 0.0))
-    cached_rate = float(entry.get("cached_input_per_million", input_rate))
-    cache_write_rate = float(entry.get("cache_write_5m_per_million", input_rate))
-    output_rate = float(entry.get("output_per_million", 0.0))
-
-    amount = (
-        uncached * input_rate
-        + cached * cached_rate
-        + cache_write * cache_write_rate
-        + (snapshot.output_tokens + snapshot.reasoning_output_tokens) * output_rate
-    ) / 1_000_000
-
-    return PriceEstimate(
-        status="ESTIMATE",
-        amount=amount,
-        model=str(entry.get("model", snapshot.model)),
-        currency=str(entry.get("currency", pricing.get("currency", "USD"))).upper(),
-        source_url=str(entry.get("source_url", "")),
-        source_checked_at=str(entry.get("source_checked_at", "")),
-        rate_note=str(entry.get("rate_note", "")),
-    )
-
 
 def available_fields_report(snapshot: UsageSnapshot) -> Dict[str, Any]:
     available = sorted(snapshot.available_fields)

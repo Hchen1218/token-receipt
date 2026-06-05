@@ -7,7 +7,7 @@ import hashlib
 import math
 import re
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .models import (
     ALLOWED_WIDTHS,
@@ -322,7 +322,9 @@ def product_name(snapshot: UsageSnapshot) -> str:
     return "AI"
 
 
-def context_used(snapshot: UsageSnapshot) -> str:
+def context_used(snapshot: UsageSnapshot) -> Optional[str]:
+    if snapshot.scope != "latest-turn":
+        return None
     if snapshot.context_tokens is not None:
         used_src = snapshot.context_tokens
     else:
@@ -1432,11 +1434,14 @@ def build_receipt_view(
     rid = receipt_id(snapshot, snapshot.provider)
     footer_text = auto_footer(snapshot, estimate, footer_tone, width, language, conversation_hint) if footer == "auto" else footer
 
-    summary_rows = (
+    summary_rows_list = [
         ReceiptRow(labels["provider"], provider),
         ReceiptRow(labels["model"], snapshot.model),
-        ReceiptRow(labels["context"], context_used(snapshot)),
-    )
+    ]
+    context_value = context_used(snapshot)
+    if context_value is not None:
+        summary_rows_list.append(ReceiptRow(labels["context"], context_value))
+    summary_rows = tuple(summary_rows_list)
     token_rows: list[ReceiptRow] = []
     if source_has(snapshot, "input_tokens"):
         token_rows.append(ReceiptRow(labels["input"], fmt_int(snapshot.input_tokens)))

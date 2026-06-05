@@ -411,6 +411,8 @@ def main() -> int:
     assert runtime_agent_tool({"KIMI_SESSION_ID": "sess-1"}) == "kimi-code"
     assert runtime_codex_thread_id({"CODEX_THREAD_ID": " thread-x "}) == "thread-x"
     assert runtime_opencode_session_id({"OPENCODE_SESSION_ID": " ses_x "}) == "ses_x"
+    assert runtime_claude_session_id({"CLAUDE_CODE_SESSION_ID": " cc-session ", "CLAUDE_SESSION_ID": " legacy-session "}) == "cc-session"
+    assert runtime_claude_session_id({"CLAUDE_SESSION_ID": " legacy-session "}) == "legacy-session"
     assert runtime_agent_tool({"OPENCODE_SESSION_ID": "ses-z"}) == "opencode"
     assert requested_agent_tool(SimpleNamespace(agent_tool=None, brand=None), {"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"}) == "codex"
     assert requested_agent_tool(SimpleNamespace(agent_tool=None, brand="generic"), {"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"}) == "codex"
@@ -445,6 +447,18 @@ def main() -> int:
     )
     assert_receipt(claude, 48, ["████", "CLAUDE", "CODE", "Reasoning Tokens", "Cache Write Tokens", "USD ESTIMATE"])
     assert_logo_label_aligned(claude, "CLAUDE CODE", max_delta=1.0)
+
+    cache_heavy = run_case(
+        "--provider", "anthropic",
+        "--agent-tool", "claude-code",
+        "--model", "claude-opus-4.7",
+        "--input-tokens", "16897",
+        "--cached-input-tokens", "22000000",
+        "--cache-write-tokens", "8180000",
+        "--output-tokens", "434360",
+        "--width", "48",
+    )
+    assert_receipt(cache_heavy, 48, ["claude-opus-4.7", "30,631,257", "$73.068485"])
 
     claude_zh = run_case(
         "--provider", "anthropic",
@@ -484,8 +498,9 @@ def main() -> int:
         "48",
         env={**os.environ, "HOME": str(kimi_home), "USERPROFILE": str(kimi_home), "KIMI_SESSION_ID": "kimi-session-xyz"},
     )
-    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "CONTEXT USED", "8,150"])
+    assert_receipt(kimi_by_session, 48, ["KIMI CODE", "THANK YOU FOR CODING WITH Kimi", "8,150"])
     assert "Input Tokens" not in kimi_by_session
+    assert "CONTEXT USED" not in kimi_by_session
     assert "UNMAPPED" in kimi_by_session
     assert_logo_label_aligned(kimi_by_session, "KIMI CODE")
 
@@ -524,6 +539,7 @@ def main() -> int:
     assert "Reasoning Tokens" in opc_session
     assert "1,090" in opc_session
     assert "1,190" in opc_session
+    assert "CONTEXT USED" not in opc_session
 
     qwen = run_case(
         "--provider", "alibaba",
@@ -544,7 +560,7 @@ def main() -> int:
         "--output-tokens", "1000000",
         "--width", "48",
     )
-    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.364000"])
+    assert_receipt(deepseek, 48, ["THANK YOU FOR CODING WITH DeepSeek", "USD ESTIMATE", "$0.434000"])
 
     glm = run_case(
         "--provider", "bigmodel",
@@ -564,7 +580,7 @@ def main() -> int:
         "--output-tokens", "1000000",
         "--width", "48",
     )
-    assert_receipt(mimo, 48, ["THANK YOU FOR CODING WITH MiMo", "USD ESTIMATE", "$4.000000", "OPENROUTER"])
+    assert_receipt(mimo, 48, ["THANK YOU FOR CODING WITH MiMo", "USD ESTIMATE", "$1.305000", "OPENROUTER"])
 
     minimax = run_case(
         "--provider", "minimax",
@@ -575,6 +591,28 @@ def main() -> int:
         "--width", "48",
     )
     assert_receipt(minimax, 48, ["THANK YOU FOR CODING WITH MiniMax", "USD ESTIMATE", "$1.500000"])
+
+    minimax_m3 = run_case(
+        "--provider", "minimax",
+        "--agent-tool", "generic",
+        "--model", "minimax-m3",
+        "--input-tokens", "1000000",
+        "--cached-input-tokens", "1000000",
+        "--output-tokens", "1000000",
+        "--width", "48",
+    )
+    assert_receipt(minimax_m3, 48, ["THANK YOU FOR CODING WITH MiniMax", "USD ESTIMATE", "$1.560000", "RATE NOTE"])
+
+    chatgpt_55 = run_case(
+        "--provider", "openai",
+        "--agent-tool", "codex",
+        "--model", "ChatGPT 5.5",
+        "--input-tokens", "1000000",
+        "--cached-input-tokens", "1000000",
+        "--output-tokens", "1000000",
+        "--width", "48",
+    )
+    assert_receipt(chatgpt_55, 48, ["THANK YOU FOR CODING WITH ChatGPT", "ChatGPT 5.5", "USD ESTIMATE", "$35.500000"])
 
     visual_footer_case = run_case(
         "--provider", "openai",
@@ -726,6 +764,7 @@ def main() -> int:
     assert all(not option["footer"].startswith("CHATGPT ") for option in en_tip_payload["options"]), "english tip footers should not repeat the product name as subject"
 
     chat_html_target = Path("/tmp/token-receipt.html")
+    chat_html_uri = chat_html_target.resolve().as_uri()
     if chat_html_target.exists():
         chat_html_target.unlink()
     chat_reply = run_case(
@@ -737,7 +776,7 @@ def main() -> int:
         "--chat-reply",
     )
     assert chat_reply.startswith("```text\n")
-    assert "[Printable HTML](/tmp/token-receipt.html)" in chat_reply
+    assert f"[Printable HTML]({chat_html_uri})" in chat_reply
     assert "CLAUDE CODE" in chat_reply
     assert chat_html_target.exists(), "chat reply mode should always export default printable html"
     chat_saved_html = chat_html_target.read_text(encoding="utf-8")
@@ -750,7 +789,7 @@ def main() -> int:
     claude_env = os.environ.copy()
     claude_env["HOME"] = str(claude_home)
     claude_env["CLAUDECODE"] = "1"
-    claude_env["CLAUDE_SESSION_ID"] = claude_session_id
+    claude_env["CLAUDE_CODE_SESSION_ID"] = claude_session_id
     claude_fields = run_case(
         "--show-fields",
         env=claude_env,
@@ -812,7 +851,7 @@ def main() -> int:
     assert "CLAUDE CODE" in hook_json["systemMessage"]
     assert "THANK YOU FOR CODING WITH Claude" in hook_json["systemMessage"]
     assert "claude-sonnet-4.5" in hook_json["systemMessage"]
-    assert "[Printable HTML](/tmp/token-receipt.html)" in hook_json["systemMessage"]
+    assert f"[Printable HTML]({chat_html_uri})" in hook_json["systemMessage"]
 
     settings_dir = Path(tempfile.mkdtemp(prefix="token-receipt-settings-"))
     settings_path = settings_dir / "settings.json"

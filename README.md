@@ -266,7 +266,7 @@ python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
 python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
 ```
 
-That prints the full receipt as the main chat artifact, automatically saves `/tmp/token-receipt.html`, and returns the local `[Printable HTML](/tmp/token-receipt.html)` link in the same reply.
+That prints the full receipt as the main chat artifact, automatically saves `/tmp/token-receipt.html`, and returns the local `[Printable HTML](file:///tmp/token-receipt.html)` link in the same reply.
 
 The current HTML path is tuned for the same three things people actually notice:
 

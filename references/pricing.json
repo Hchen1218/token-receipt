@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-04-25",
+  "checked_at": "2026-06-05",
   "currency": "USD",
   "unit": "per_1m_tokens",
   "notes": [
@@ -15,12 +15,22 @@
     {
       "provider": "openai",
       "model": "gpt-5.5",
-      "aliases": ["gpt-5.5", "gpt 5.5"],
+      "aliases": ["gpt-5.5", "gpt 5.5", "chatgpt 5.5", "chatgpt-5.5"],
       "input_per_million": 5.0,
       "cached_input_per_million": 0.5,
       "output_per_million": 30.0,
-      "source_url": "https://openai.com/api/pricing/",
-      "source_checked_at": "2026-04-25"
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "source_checked_at": "2026-06-05"
+    },
+    {
+      "provider": "openai",
+      "model": "chat-latest",
+      "aliases": ["chat-latest", "chat latest", "chatgpt latest"],
+      "input_per_million": 5.0,
+      "cached_input_per_million": 0.5,
+      "output_per_million": 30.0,
+      "source_url": "https://developers.openai.com/api/docs/models/chat-latest",
+      "source_checked_at": "2026-06-05"
     },
     {
       "provider": "openai",
@@ -243,6 +253,17 @@
     },
     {
       "provider": "anthropic",
+      "model": "claude-opus-4.8",
+      "aliases": ["claude-opus-4.8", "claude opus 4.8", "opus 4.8"],
+      "input_per_million": 5.0,
+      "cache_write_5m_per_million": 6.25,
+      "cached_input_per_million": 0.5,
+      "output_per_million": 25.0,
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "source_checked_at": "2026-06-05"
+    },
+    {
+      "provider": "anthropic",
       "model": "claude-opus-4.7",
       "aliases": ["claude-opus-4.7", "claude opus 4.7", "opus 4.7"],
       "input_per_million": 5.0,
@@ -250,7 +271,7 @@
       "cached_input_per_million": 0.5,
       "output_per_million": 25.0,
       "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
-      "source_checked_at": "2026-04-25"
+      "source_checked_at": "2026-06-05"
     },
     {
       "provider": "anthropic",
@@ -484,6 +505,17 @@
     },
     {
       "provider": "minimax",
+      "model": "minimax-m3",
+      "aliases": ["minimax-m3", "minimax m3", "minimax-3", "minimax 3", "MiniMax-M3"],
+      "input_per_million": 0.3,
+      "cached_input_per_million": 0.06,
+      "output_per_million": 1.2,
+      "rate_note": "<=512K tier",
+      "source_url": "https://platform.minimax.io/docs/guides/pricing-paygo",
+      "source_checked_at": "2026-06-05"
+    },
+    {
+      "provider": "minimax",
       "model": "minimax-m2.7",
       "aliases": ["minimax-m2.7", "m2.7", "minimax m2.7"],
       "input_per_million": 0.3,
@@ -539,21 +571,21 @@
       "provider": "xiaomi",
       "model": "xiaomi/mimo-v2.5-pro",
       "aliases": ["xiaomi/mimo-v2.5-pro", "mimo-v2.5-pro", "mimo v2.5 pro", "xiaomi mimo v2.5 pro"],
-      "input_per_million": 1.0,
-      "output_per_million": 3.0,
+      "input_per_million": 0.435,
+      "output_per_million": 0.87,
       "rate_note": "OPENROUTER",
       "source_url": "https://openrouter.ai/xiaomi/mimo-v2.5-pro",
-      "source_checked_at": "2026-04-25"
+      "source_checked_at": "2026-06-05"
     },
     {
       "provider": "xiaomi",
       "model": "xiaomi/mimo-v2.5",
       "aliases": ["xiaomi/mimo-v2.5", "mimo-v2.5", "mimo v2.5", "xiaomi mimo v2.5"],
-      "input_per_million": 0.4,
-      "output_per_million": 2.0,
+      "input_per_million": 0.14,
+      "output_per_million": 0.28,
       "rate_note": "OPENROUTER",
       "source_url": "https://openrouter.ai/xiaomi/mimo-v2.5",
-      "source_checked_at": "2026-04-25"
+      "source_checked_at": "2026-06-05"
     },
     {
       "provider": "xiaomi",

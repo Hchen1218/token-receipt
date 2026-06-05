@@ -267,7 +267,7 @@ python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
 python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
 ```
 
-这会把完整 receipt 代码块作为主回复，同时自动落一份 `/tmp/token-receipt.html`，再把 `[Printable HTML](/tmp/token-receipt.html)` 一起带回来。
+这会把完整 receipt 代码块作为主回复，同时自动落一份 `/tmp/token-receipt.html`，再把 `[Printable HTML](file:///tmp/token-receipt.html)` 一起带回来。
 
 这一版的 HTML 主要盯住了三件最容易被看出来的事：
 

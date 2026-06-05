@@ -8,9 +8,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from .data import available_fields_report, estimate_cost, resolve_snapshot
+from .data import available_fields_report, resolve_snapshot
 from .html_render import render_receipt_html
 from .models import ALLOWED_WIDTHS, DEFAULT_FOOTER, DEFAULT_PRICING, canonical_language
+from .pricing import compute_total, estimate_cost
 from .render import auto_brand, print_receipt, render_receipt
 
 DEFAULT_CHAT_HTML_PATH = Path("/tmp/token-receipt.html")
@@ -19,7 +20,7 @@ DEFAULT_CHAT_HTML_PATH = Path("/tmp/token-receipt.html")
 def format_chat_reply(receipt_text: str, html_path: Optional[Path] = None) -> str:
     reply = f"```text\n{receipt_text}\n```"
     if html_path:
-        reply += f"\n\n[Printable HTML]({html_path.as_posix()})"
+        reply += f"\n\n[Printable HTML]({html_path.expanduser().resolve().as_uri()})"
     return reply
 
 
@@ -71,6 +72,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         snapshot.provider = args.provider
     if args.model:
         snapshot.model = args.model
+    if "total_tokens" not in snapshot.available_fields:
+        snapshot.total_tokens = compute_total(snapshot)
 
     if args.show_fields:
         fields_json = json.dumps(available_fields_report(snapshot), indent=2, ensure_ascii=True)

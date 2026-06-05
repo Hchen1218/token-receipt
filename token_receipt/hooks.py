@@ -9,13 +9,13 @@ from typing import Any, Dict, Optional
 
 from .cli import format_chat_reply
 from .data import (
-    estimate_cost,
     find_claude_usage_for_session,
     load_snapshot_from_claude_usage,
     newest_claude_usage_file,
 )
 from .html_render import render_receipt_html
 from .models import DEFAULT_PRICING
+from .pricing import estimate_cost
 from .render import render_receipt
 
 

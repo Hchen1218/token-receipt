@@ -46,7 +46,7 @@ python3 scripts/token_receipt.py
 
 ```bash
 python3 scripts/token_receipt.py --agent-tool codex --chat-reply
-python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_SESSION_ID}.json --chat-reply
+python3 scripts/token_receipt.py --agent-tool claude-code --session ~/.claude/usage-data/session-meta/${CLAUDE_CODE_SESSION_ID:-$CLAUDE_SESSION_ID}.json --chat-reply
 python3 scripts/token_receipt.py --agent-tool kimi-code --chat-reply
 python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
 ```
@@ -55,7 +55,7 @@ python3 scripts/token_receipt.py --agent-tool opencode --chat-reply
 
 - 把完整 receipt 作为聊天回复主体打印出来
 - 自动落一份 `/tmp/token-receipt.html`
-- 在回复底部附上 `[Printable HTML](/tmp/token-receipt.html)`
+- 在回复底部附上 `[Printable HTML](file:///tmp/token-receipt.html)`
 
 不要先跑一遍默认命令，再 `grep` 会话文件后重跑第二遍；那样只会在工具输出里刷出多张 logo。
 
@@ -88,7 +88,7 @@ python3 scripts/uninstall_claude_auto_trigger.py
 
 ## 聊天回复契约
 
-- 默认回复必须是聊天友好的完整产物：receipt fenced code block + `[Printable HTML](/tmp/token-receipt.html)`。
+- 默认回复必须是聊天友好的完整产物：receipt fenced code block + `[Printable HTML](file:///tmp/token-receipt.html)`。
 - 代码块前后不要再加解释、总结、状态汇报、字段摘录、项目符号。
 - 不要只返回 `RECEIPT #`、`TOTAL`、`USD ESTIMATE` 这种摘要。
 - 在 Claude Code 里，如果需要用 Bash 跑脚本，优先直接用 `--chat-reply`；不要再手动拼 `--write /tmp/token-receipt.txt` + `--write-html ...` 的双步流。
@@ -100,7 +100,7 @@ python3 scripts/uninstall_claude_auto_trigger.py
 <full receipt here>
 ```
 
-[Printable HTML](/tmp/token-receipt.html)
+[Printable HTML](file:///tmp/token-receipt.html)
 ````
 
 ## 数据口径
